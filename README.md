@@ -132,7 +132,7 @@ ComercioApp/
 | usuarios, productos, pedidos | `DATABASE_URL` | URL de la base de datos. Render la llena sola con `tienda-db`; puedes poner la de otra base. |
 | usuarios, productos, pedidos | `DATABASE_SSL` | Opcional: `true` o `false` para forzar SSL (por ejemplo con una base externa). |
 | usuarios, pedidos | `JWT_SECRET` | Secreto de los tokens (grupo `tienda-secretos`, debe ser igual en ambos). |
-| pedidos | `PRODUCTOS_URL` | URL pública del servicio de productos, ej. `https://tienda-productos.onrender.com` |
+| pedidos | `PRODUCTOS_URL` | URL pública del servicio de productos, ej. `https://tienda-productos-dxd5.onrender.com` |
 | pedidos | `IVA` | Impuesto, ej. `0.12` |
 | **tienda-web** | `EXPO_PUBLIC_USUARIOS_URL` | URL pública del servicio de usuarios |
 | **tienda-web** | `EXPO_PUBLIC_PRODUCTOS_URL` | URL pública del servicio de productos |

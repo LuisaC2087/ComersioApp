@@ -13,8 +13,8 @@
 
 export const API = {
   usuarios: process.env.EXPO_PUBLIC_USUARIOS_URL || 'https://tienda-usuarios.onrender.com',
-  productos: process.env.EXPO_PUBLIC_PRODUCTOS_URL || 'https://tienda-productos.onrender.com',
-  pedidos: process.env.EXPO_PUBLIC_PEDIDOS_URL || 'https://tienda-pedidos.onrender.com',
+  productos: process.env.EXPO_PUBLIC_PRODUCTOS_URL || 'https://tienda-productos-dxd5.onrender.com',
+  pedidos: process.env.EXPO_PUBLIC_PEDIDOS_URL || 'https://tienda-pedidos-brue.onrender.com',
 };
 
 // Datos que aparecen en la factura

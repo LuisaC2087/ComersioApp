@@ -7,10 +7,10 @@
 #  - 1 sitio web estático con la app Expo para navegador (gratis)
 #
 #  VARIABLES DE ENTORNO
-#  - Las que tienen "sync: false" se configuran en el panel de Render
-#    (servicio > Environment). Render las pide al crear el Blueprint.
-#  - Las que tienen "value" o "fromDatabase" se llenan solas, y también
-#    se pueden ver y editar en Environment.
+#  Se ven y se editan en Render > servicio > Environment.
+#  Si cambias una que tiene "value" aquí, cámbiala también en este archivo,
+#  o Render la restaurará cuando sincronice el Blueprint.
+#  Las URLs son las que Render asignó (con sufijo, ej. -dxd5).
 # ============================================================
 
 databases:
@@ -75,7 +75,7 @@ services:
           property: connectionString
       - fromGroup: tienda-secretos
       - key: PRODUCTOS_URL         # URL pública del servicio de productos
-        sync: false
+        value: https://tienda-productos-dxd5.onrender.com
       - key: IVA
         value: "0.12"
 
@@ -89,11 +89,11 @@ services:
     envVars:
       # URLs públicas de los microservicios (cópialas del panel de Render)
       - key: EXPO_PUBLIC_USUARIOS_URL
-        sync: false
+        value: https://tienda-usuarios.onrender.com
       - key: EXPO_PUBLIC_PRODUCTOS_URL
-        sync: false
+        value: https://tienda-productos-dxd5.onrender.com
       - key: EXPO_PUBLIC_PEDIDOS_URL
-        sync: false
+        value: https://tienda-pedidos-brue.onrender.com
       - key: EXPO_PUBLIC_MONEDA
         value: Q
       - key: EXPO_PUBLIC_IVA
