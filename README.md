@@ -106,7 +106,7 @@ ComercioApp/
 
 ---
 
-## 1. Desplegar el backend en Render
+## 1. Desplegar todo en Render
 
 1. Sube esta carpeta a un repositorio de **GitHub**.
 2. En [render.com](https://render.com), ve a **New → Blueprint** y elige el repositorio.
@@ -114,8 +114,15 @@ ComercioApp/
    - la base de datos `tienda-db` (PostgreSQL gratis)
    - los servicios `tienda-usuarios`, `tienda-productos` y `tienda-pedidos`
    - un `JWT_SECRET` aleatorio compartido por los servicios
-4. Espera a que los 3 servicios digan **Live** y abre la URL de cada uno.
+   - el sitio web `tienda-web`: **la misma app Expo, exportada para navegador**
+4. Espera a que todo diga **Live** y abre la URL de cada microservicio.
    Deberías ver algo como `{"servicio":"productos","estado":"ok"}`.
+5. Abre la URL de **tienda-web** (ej. `https://tienda-web.onrender.com`) para usar la app
+   desde cualquier navegador, también desde el celular.
+
+> 🌐 En la versión web, "Descargar PDF" abre el diálogo de imprimir: elige **Guardar como PDF**.
+> SQLite también funciona en el navegador (con WebAssembly); por eso `render.yaml`
+> agrega las cabeceras `Cross-Origin-Opener-Policy` y `Cross-Origin-Embedder-Policy`.
 
 > ⚠️ Si Render les pone otras URLs (por ejemplo `tienda-productos-abc1.onrender.com`):
 > - cambia `PRODUCTOS_URL` en el servicio **tienda-pedidos** (en el panel de Render, en *Environment*);

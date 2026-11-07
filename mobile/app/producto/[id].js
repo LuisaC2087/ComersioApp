@@ -2,7 +2,7 @@
 // El producto se toma del catálogo guardado en SQLite (no hace falta otra petición).
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable,ScrollView, StyleSheet, Text, View } from 'react-native';
 import Boton from '../../components/Boton';
 import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
@@ -29,6 +29,13 @@ export default function Producto() {
 
   function anadir() {
     agregarAlCarrito(producto, talla, cantidad); // se guarda en SQLite
+
+    // En el navegador Alert no tiene botones, usamos confirm()
+    if (Platform.OS === 'web') {
+      const irAlCarrito = window.confirm(`¡Añadido! ${cantidad} × ${producto.nombre}\n¿Ir al carrito?`);
+      return irAlCarrito ? router.navigate('/carrito') : router.back();
+    }
+
     Alert.alert('¡Añadido! 🛒', `${cantidad} × ${producto.nombre} (talla ${talla})`, [
       { text: 'Seguir comprando', onPress: () => router.back() },
       { text: 'Ver carrito', onPress: () => router.navigate('/carrito') },

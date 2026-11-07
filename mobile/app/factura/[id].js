@@ -1,7 +1,7 @@
 // FACTURA (ruta "/factura/12", o "/factura/12?nuevo=1" justo después de pagar)
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Boton from '../../components/Boton';
 import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
@@ -37,7 +37,7 @@ export default function Factura() {
     try {
       await descargarFacturaPdf(pedido);
     } catch (e) {
-      Alert.alert('No se pudo generar el PDF', e.message);
+      setError('No se pudo generar el PDF: ' + e.message);
     } finally {
       setGenerando(false);
     }
@@ -89,6 +89,7 @@ export default function Factura() {
           </Tarjeta>
 
           <Boton titulo="📄 Descargar PDF" onPress={descargar} cargando={generando} />
+          {error ? <Text style={estilos.error}>{error}</Text> : null}
           {nuevo ? (
             <Boton titulo="Seguir comprando" variante="vidrio" onPress={() => router.navigate('/')} />
           ) : null}

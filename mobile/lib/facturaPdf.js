@@ -6,6 +6,7 @@
 // ============================================================
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { TIENDA } from './config';
 import { dinero, fecha } from './formato';
 
@@ -81,6 +82,12 @@ function htmlFactura(pedido) {
 }
 
 export async function descargarFacturaPdf(pedido) {
+  // En el navegador se abre el diálogo de imprimir -> "Guardar como PDF"
+  if (Platform.OS === 'web') {
+    await Print.printAsync({ html: htmlFactura(pedido) });
+    return null;
+  }
+
   const { uri } = await Print.printToFileAsync({ html: htmlFactura(pedido) });
 
   if (await Sharing.isAvailableAsync()) {
