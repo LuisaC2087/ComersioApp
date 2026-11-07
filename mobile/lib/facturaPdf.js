@@ -1,13 +1,13 @@
 // ============================================================
-//  FACTURA EN PDF
+//  FACTURA EN PDF — VERSIÓN CELULAR (app nativa / Expo Go)
 //  1. Armamos la factura como HTML.
-//  2. En el celular: expo-print convierte ese HTML en un archivo PDF
-//     y expo-sharing abre el menú del teléfono para guardarlo o compartirlo.
-//  3. En el navegador: se abre el diálogo de imprimir -> "Guardar como PDF".
+//  2. expo-print convierte ese HTML en un archivo PDF.
+//  3. expo-sharing abre el menú del teléfono para guardarlo o compartirlo.
+//
+//  En el navegador Expo usa "facturaPdf.web.js" (descarga con jsPDF).
 // ============================================================
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
 import { TIENDA } from './config';
 import { dinero, fecha } from './formato';
 
@@ -85,38 +85,20 @@ function htmlFactura(pedido) {
   </html>`;
 }
 
-// En el navegador expo-print no usa nuestro HTML (imprime la pantalla de la app).
-// Por eso cargamos la factura en un <iframe> invisible e imprimimos solo ese iframe.
-// El usuario elige "Guardar como PDF" en el diálogo del navegador.
-function imprimirEnNavegador(html) {
-  const marco = document.createElement('iframe');
-  marco.style.cssText = 'position:fixed;width:0;height:0;border:0;';
-  document.body.appendChild(marco);
-
-  const doc = marco.contentDocument;
-  doc.open();
-  doc.write(html);
-  doc.close();
-
-  marco.contentWindow.focus();
-  marco.contentWindow.print(); // espera hasta que el usuario cierre el diálogo
-  setTimeout(() => marco.remove(), 1000);
-}
-
 export async function descargarFacturaPdf(pedido) {
-  if (Platform.OS === 'web') {
-    imprimirEnNavegador(htmlFactura(pedido));
-    return null;
-  }
-
+  // 1. Convertimos el HTML en un archivo PDF dentro del teléfono
   const { uri } = await Print.printToFileAsync({ html: htmlFactura(pedido) });
 
+  // 2. Abrimos el menú del teléfono para guardarlo (Archivos/Drive) o compartirlo
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
       UTI: 'com.adobe.pdf',
       dialogTitle: `Factura ${pedido.numero_factura}`,
     });
+  } else {
+    // Si no se puede compartir, abrimos el diálogo de impresión (permite "Guardar como PDF")
+    await Print.printAsync({ uri });
   }
   return uri;
 }
