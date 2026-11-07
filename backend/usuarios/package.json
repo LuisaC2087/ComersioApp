@@ -1,0 +1,20 @@
+{
+  "name": "servicio-usuarios",
+  "version": "1.0.0",
+  "description": "Microservicio de usuarios: registro e inicio de sesión (JWT)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch --env-file=.env index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
+  }
+}

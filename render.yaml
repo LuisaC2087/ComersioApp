@@ -1,0 +1,75 @@
+# ============================================================
+#  Blueprint de Render: crea TODO con un solo clic
+#  (Render > New > Blueprint > selecciona este repositorio)
+#
+#  - 1 base de datos PostgreSQL (gratis)
+#  - 3 microservicios Node.js (gratis)
+# ============================================================
+
+databases:
+  - name: tienda-db
+    plan: free
+    databaseName: tienda
+    user: tienda
+
+# Secreto compartido: los 3 servicios usan el MISMO JWT_SECRET
+# para crear y validar los tokens de sesión.
+envVarGroups:
+  - name: tienda-secretos
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+
+services:
+  # ---------- Usuarios: registro y login ----------
+  - type: web
+    name: tienda-usuarios
+    runtime: node
+    plan: free
+    rootDir: backend/usuarios
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tienda-db
+          property: connectionString
+      - fromGroup: tienda-secretos
+
+  # ---------- Productos: catálogo ----------
+  - type: web
+    name: tienda-productos
+    runtime: node
+    plan: free
+    rootDir: backend/productos
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tienda-db
+          property: connectionString
+
+  # ---------- Pedidos: pago simulado, facturas, historial ----------
+  - type: web
+    name: tienda-pedidos
+    runtime: node
+    plan: free
+    rootDir: backend/pedidos
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tienda-db
+          property: connectionString
+      - fromGroup: tienda-secretos
+      # URL pública del servicio de productos.
+      # Si Render le asigna otro nombre, cámbiala aquí o en el panel de Render.
+      - key: PRODUCTOS_URL
+        value: https://tienda-productos.onrender.com
+      - key: IVA
+        value: "0.12"
