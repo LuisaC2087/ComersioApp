@@ -17,20 +17,22 @@ import { colores } from '../../lib/tema';
 export default function Factura() {
   const { sesion } = useAuth();
   const { id, nuevo } = useLocalSearchParams();
-  // Primero buscamos la factura en SQLite; si no está, la pedimos al servidor
+  // Mientras llega la respuesta del servidor, mostramos la copia local (si existe)
   const [pedido, setPedido] = useState(() => leerCache(`pedido-${id}`));
   const [error, setError] = useState('');
   const [generando, setGenerando] = useState(false);
 
+  // Siempre consultamos la base de datos; la copia local solo sirve sin internet
   useEffect(() => {
-    if (pedido) return;
     obtenerPedido(sesion.token, id)
       .then((datos) => {
         setPedido(datos);
         guardarCache(`pedido-${id}`, datos);
       })
-      .catch((e) => setError(e.message));
-  }, []);
+      .catch((e) => {
+        if (!pedido) setError(e.message);
+      });
+  }, [id]);
 
   async function descargar() {
     setGenerando(true);

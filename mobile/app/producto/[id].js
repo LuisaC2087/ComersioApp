@@ -1,28 +1,50 @@
 // DETALLE DE PRODUCTO (ruta "/producto/5")
-// El producto se toma del catálogo guardado en SQLite (no hace falta otra petición).
+// El producto se consulta en la base de datos (GET /productos/:id).
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Platform, Pressable,ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Boton from '../../components/Boton';
 import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
 import ImagenProducto from '../../components/ImagenProducto';
 import Tarjeta from '../../components/Tarjeta';
+import { obtenerProducto } from '../../lib/api';
 import { agregarAlCarrito, leerCache } from '../../lib/db';
 import { dinero } from '../../lib/formato';
 import { colores } from '../../lib/tema';
 
 export default function Producto() {
   const { id } = useLocalSearchParams();
-  const producto = (leerCache('productos') || []).find((p) => String(p.id) === id);
-
-  const [talla, setTalla] = useState(producto?.tallas[0]);
+  const [producto, setProducto] = useState(null);
+  const [talla, setTalla] = useState(null);
   const [cantidad, setCantidad] = useState(1);
+  const [error, setError] = useState('');
+
+  function mostrar(p) {
+    setProducto(p);
+    setTalla(p.tallas[0]);
+  }
+
+  // Consultamos el producto en la base de datos; si no hay internet, usamos la copia local
+  useEffect(() => {
+    obtenerProducto(id)
+      .then(mostrar)
+      .catch((e) => {
+        const guardado = (leerCache('productos') || []).find((p) => String(p.id) === String(id));
+        if (guardado) mostrar(guardado);
+        else setError(e.message);
+      });
+  }, [id]);
 
   if (!producto) {
     return (
       <Fondo>
-        <Encabezado titulo="Producto no encontrado" onVolver={() => router.back()} />
+        <Encabezado
+          titulo={error ? 'Producto no encontrado' : 'Cargando…'}
+          subtitulo={error}
+          onVolver={() => router.back()}
+        />
+        {!error ? <ActivityIndicator color="#fff" size="large" /> : null}
       </Fondo>
     );
   }

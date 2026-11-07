@@ -37,7 +37,13 @@ export const registrar = (nombre, email, password) =>
   pedir(`${API.usuarios}/registro`, { metodo: 'POST', cuerpo: { nombre, email, password } });
 
 // ---------- Servicio de productos ----------
-export const obtenerProductos = () => pedir(`${API.productos}/productos`);
+// Todos consultan la tabla "productos" de PostgreSQL a través del microservicio
+export const obtenerProductos = (categoria) =>
+  pedir(`${API.productos}/productos${categoria ? `?categoria=${encodeURIComponent(categoria)}` : ''}`);
+
+export const obtenerProducto = (id) => pedir(`${API.productos}/productos/${id}`);
+
+export const obtenerCategorias = () => pedir(`${API.productos}/categorias`);
 
 // ---------- Servicio de pedidos ----------
 // items: [{ productoId, talla, cantidad }]

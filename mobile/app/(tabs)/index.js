@@ -6,7 +6,7 @@ import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
 import ImagenProducto from '../../components/ImagenProducto';
 import Tarjeta from '../../components/Tarjeta';
-import { obtenerProductos } from '../../lib/api';
+import { obtenerCategorias, obtenerProductos } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { guardarCache, leerCache } from '../../lib/db';
 import { dinero } from '../../lib/formato';
@@ -15,21 +15,27 @@ import { colores } from '../../lib/tema';
 export default function Catalogo() {
   const { sesion } = useAuth();
   const [productos, setProductos] = useState([]);
+  const [categorias, setCategorias] = useState(['Todos']);
   const [categoria, setCategoria] = useState('Todos');
   const [cargando, setCargando] = useState(true);
   const [aviso, setAviso] = useState('');
 
+  // Consulta la base de datos (PostgreSQL) a través del microservicio de productos
   async function cargar() {
     setCargando(true);
     setAviso('');
     try {
-      const lista = await obtenerProductos();
+      const filtro = categoria === 'Todos' ? null : categoria;
+      const [lista, nombres] = await Promise.all([obtenerProductos(filtro), obtenerCategorias()]);
       setProductos(lista);
-      guardarCache('productos', lista); // copia en SQLite para usar sin internet
+      setCategorias(['Todos', ...nombres]);
+      if (!filtro) guardarCache('productos', lista); // copia local solo para usar sin internet
     } catch (e) {
+      // Sin conexión: usamos la última copia guardada en el teléfono
       const guardados = leerCache('productos');
       if (guardados) {
-        setProductos(guardados);
+        setProductos(categoria === 'Todos' ? guardados : guardados.filter((p) => p.categoria === categoria));
+        setCategorias(['Todos', ...new Set(guardados.map((p) => p.categoria))]);
         setAviso('Sin conexión: mostrando el catálogo guardado en el teléfono');
       } else {
         setAviso(e.message);
@@ -39,13 +45,12 @@ export default function Catalogo() {
     }
   }
 
+  // Se vuelve a consultar cada vez que cambia la categoría
   useEffect(() => {
     cargar();
-  }, []);
+  }, [categoria]);
 
-  // Categorías sacadas de los mismos productos
-  const categorias = ['Todos', ...new Set(productos.map((p) => p.categoria))];
-  const visibles = categoria === 'Todos' ? productos : productos.filter((p) => p.categoria === categoria);
+  const visibles = productos;
   const primerNombre = sesion.usuario.nombre.split(' ')[0];
 
   return (
