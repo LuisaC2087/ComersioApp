@@ -18,6 +18,9 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../lib/AuthContext';
 import { colores } from '../lib/tema';
 
+// Si una pantalla falla, Expo Router muestra el error en lugar de una pantalla en blanco
+export { ErrorBoundary } from 'expo-router';
+
 // Fondo oscuro de la navegación (se ve un instante durante las transiciones)
 const tema = { ...DarkTheme, colors: { ...DarkTheme.colors, background: colores.degradado[0] } };
 

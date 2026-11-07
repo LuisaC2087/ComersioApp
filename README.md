@@ -117,16 +117,38 @@ ComercioApp/
    - el sitio web `tienda-web`: **la misma app Expo, exportada para navegador**
 4. Espera a que todo diga **Live** y abre la URL de cada microservicio.
    Deberías ver algo como `{"servicio":"productos","estado":"ok"}`.
-5. Abre la URL de **tienda-web** (ej. `https://tienda-web.onrender.com`) para usar la app
-   desde cualquier navegador, también desde el celular.
+5. Configura las **variables de entorno** (siguiente sección) con las URLs reales.
+6. Abre la URL de **tienda-web** para usar la app desde cualquier navegador,
+   también desde el celular.
 
 > 🌐 En la versión web, "Descargar PDF" abre el diálogo de imprimir: elige **Guardar como PDF**.
-> SQLite también funciona en el navegador (con WebAssembly); por eso `render.yaml`
-> agrega las cabeceras `Cross-Origin-Opener-Policy` y `Cross-Origin-Embedder-Policy`.
+> En el navegador, la sesión y el carrito se guardan en `localStorage` (`mobile/lib/db.web.js`);
+> en el celular se usa SQLite (`mobile/lib/db.js`). Expo elige el archivo correcto automáticamente.
 
-> ⚠️ Si Render les pone otras URLs (por ejemplo `tienda-productos-abc1.onrender.com`):
-> - cambia `PRODUCTOS_URL` en el servicio **tienda-pedidos** (en el panel de Render, en *Environment*);
-> - cambia las URLs en `mobile/lib/config.js`.
+### Variables de entorno (se configuran en Render → servicio → *Environment*)
+
+| Servicio | Variable | Para qué sirve |
+|---|---|---|
+| usuarios, productos, pedidos | `DATABASE_URL` | URL de la base de datos. Render la llena sola con `tienda-db`; puedes poner la de otra base. |
+| usuarios, productos, pedidos | `DATABASE_SSL` | Opcional: `true` o `false` para forzar SSL (por ejemplo con una base externa). |
+| usuarios, pedidos | `JWT_SECRET` | Secreto de los tokens (grupo `tienda-secretos`, debe ser igual en ambos). |
+| pedidos | `PRODUCTOS_URL` | URL pública del servicio de productos, ej. `https://tienda-productos.onrender.com` |
+| pedidos | `IVA` | Impuesto, ej. `0.12` |
+| **tienda-web** | `EXPO_PUBLIC_USUARIOS_URL` | URL pública del servicio de usuarios |
+| **tienda-web** | `EXPO_PUBLIC_PRODUCTOS_URL` | URL pública del servicio de productos |
+| **tienda-web** | `EXPO_PUBLIC_PEDIDOS_URL` | URL pública del servicio de pedidos |
+| **tienda-web** | `EXPO_PUBLIC_MONEDA`, `EXPO_PUBLIC_IVA` | Moneda e IVA que muestra la app |
+| **tienda-web** | `EXPO_PUBLIC_TIENDA_NOMBRE`, `_NIT`, `_DIRECCION`, `_TELEFONO` | Datos de la factura |
+
+> ⚠️ **Las variables `EXPO_PUBLIC_…` se copian dentro de la app al compilarla.**
+> Después de cambiarlas, en **tienda-web** usa **Manual Deploy → Clear build cache & deploy**.
+
+> ℹ️ Las URLs públicas de cada servicio aparecen arriba en su página de Render
+> (algo como `https://tienda-usuarios-xxxx.onrender.com`). Cópialas sin `/` al final.
+
+> ℹ️ Si cambias en el panel una variable que también tiene valor en `render.yaml`
+> (`IVA`, `EXPO_PUBLIC_MONEDA`…), cámbiala también en `render.yaml`; si no, Render
+> puede restaurarla la próxima vez que sincronice el Blueprint.
 
 > 💤 En el plan gratis, los servicios se "duermen" después de 15 minutos sin uso.
 > La primera petición puede tardar unos 50 segundos; después responden rápido.
@@ -159,7 +181,8 @@ npm run dev
 ```
 
 Haz lo mismo en `productos` (puerto 3002) y `pedidos` (puerto 3003).
-Luego, en `mobile/lib/config.js`, usa la IP de tu PC, por ejemplo `http://192.168.1.50:3001`.
+Luego copia `mobile/.env.example` como `mobile/.env` y pon la IP de tu PC,
+por ejemplo `EXPO_PUBLIC_USUARIOS_URL=http://192.168.1.50:3001`.
 
 ---
 
@@ -168,11 +191,12 @@ Luego, en `mobile/lib/config.js`, usa la IP de tu PC, por ejemplo `http://192.16
 | Quiero… | Archivo |
 |---|---|
 | Cambiar colores o el estilo de vidrio | `mobile/lib/tema.js` |
-| Cambiar nombre, NIT o dirección de la tienda | `mobile/lib/config.js` → `TIENDA` |
-| Cambiar la moneda | `mobile/lib/config.js` → `MONEDA` |
+| Cambiar las URLs de los microservicios | Variables `EXPO_PUBLIC_…_URL` (Render o `mobile/.env`) |
+| Cambiar nombre, NIT o dirección de la tienda | Variables `EXPO_PUBLIC_TIENDA_…` |
+| Cambiar la moneda | Variable `EXPO_PUBLIC_MONEDA` |
 | Agregar o editar productos | `backend/productos/productos-iniciales.js` (solo se cargan si la tabla está vacía) o insertar directo en la tabla `productos` |
 | Usar fotos en vez de emojis | Pon una URL en el campo `imagen` del producto |
-| Cambiar el IVA | Variable `IVA` en Render (servicio pedidos) y `IVA` en `mobile/lib/config.js` |
+| Cambiar el IVA | Variable `IVA` (servicio pedidos) y `EXPO_PUBLIC_IVA` (tienda-web) |
 | Cambiar las reglas del pago simulado | `backend/pedidos/pago-simulado.js` |
 | Cambiar el diseño de la factura PDF | `mobile/lib/facturaPdf.js` (es HTML normal) |
 | Agregar una pantalla | Crea un archivo en `mobile/app/` (Expo Router lo convierte en ruta) |

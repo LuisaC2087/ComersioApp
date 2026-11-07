@@ -5,6 +5,12 @@
 #  - 1 base de datos PostgreSQL (gratis)
 #  - 3 microservicios Node.js (gratis)
 #  - 1 sitio web estático con la app Expo para navegador (gratis)
+#
+#  VARIABLES DE ENTORNO
+#  - Las que tienen "sync: false" se configuran en el panel de Render
+#    (servicio > Environment). Render las pide al crear el Blueprint.
+#  - Las que tienen "value" o "fromDatabase" se llenan solas, y también
+#    se pueden ver y editar en Environment.
 # ============================================================
 
 databases:
@@ -32,7 +38,7 @@ services:
     startCommand: npm start
     healthCheckPath: /
     envVars:
-      - key: DATABASE_URL
+      - key: DATABASE_URL          # URL de la base de datos
         fromDatabase:
           name: tienda-db
           property: connectionString
@@ -68,10 +74,8 @@ services:
           name: tienda-db
           property: connectionString
       - fromGroup: tienda-secretos
-      # URL pública del servicio de productos.
-      # Si Render le asigna otro nombre, cámbiala aquí o en el panel de Render.
-      - key: PRODUCTOS_URL
-        value: https://tienda-productos.onrender.com
+      - key: PRODUCTOS_URL         # URL pública del servicio de productos
+        sync: false
       - key: IVA
         value: "0.12"
 
@@ -82,16 +86,22 @@ services:
     rootDir: mobile
     buildCommand: npm install && npx expo export --platform web
     staticPublishPath: dist
+    envVars:
+      # URLs públicas de los microservicios (cópialas del panel de Render)
+      - key: EXPO_PUBLIC_USUARIOS_URL
+        sync: false
+      - key: EXPO_PUBLIC_PRODUCTOS_URL
+        sync: false
+      - key: EXPO_PUBLIC_PEDIDOS_URL
+        sync: false
+      - key: EXPO_PUBLIC_MONEDA
+        value: Q
+      - key: EXPO_PUBLIC_IVA
+        value: "0.12"
+      - key: EXPO_PUBLIC_TIENDA_NOMBRE
+        value: Glass Store
     # Todas las rutas (/carrito, /factura/3, ...) las resuelve Expo Router
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
-    # SQLite en el navegador necesita estas dos cabeceras
-    headers:
-      - path: /*
-        name: Cross-Origin-Opener-Policy
-        value: same-origin
-      - path: /*
-        name: Cross-Origin-Embedder-Policy
-        value: credentialless

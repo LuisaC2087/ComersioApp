@@ -1,27 +1,32 @@
 // ============================================================
-//  CONFIGURACIÓN DE LA APP  (lo que más vas a querer cambiar)
+//  CONFIGURACIÓN DE LA APP (todo sale de variables de entorno)
+//
+//  - En Render: servicio "tienda-web" > Environment.
+//    OJO: después de cambiar una variable hay que volver a desplegar
+//    (Manual Deploy > Clear build cache & deploy), porque Expo
+//    copia estos valores dentro de la app al compilarla.
+//  - En tu PC: copia "mobile/.env.example" como "mobile/.env".
+//
+//  Solo las variables que empiezan con EXPO_PUBLIC_ llegan a la app.
+//  Si una variable no existe, se usa el valor que está después de "||".
 // ============================================================
 
-// URLs de los 3 microservicios desplegados en Render.
-// Para probar con los servicios corriendo en tu PC, usa la IP de tu PC
-// (no "localhost", porque el celular es otro dispositivo), por ejemplo:
-//   usuarios: 'http://192.168.1.50:3001',
 export const API = {
-  usuarios: 'https://tienda-usuarios.onrender.com',
-  productos: 'https://tienda-productos.onrender.com',
-  pedidos: 'https://tienda-pedidos.onrender.com',
+  usuarios: process.env.EXPO_PUBLIC_USUARIOS_URL || 'https://tienda-usuarios.onrender.com',
+  productos: process.env.EXPO_PUBLIC_PRODUCTOS_URL || 'https://tienda-productos.onrender.com',
+  pedidos: process.env.EXPO_PUBLIC_PEDIDOS_URL || 'https://tienda-pedidos.onrender.com',
 };
 
 // Datos que aparecen en la factura
 export const TIENDA = {
-  nombre: 'Glass Store',
-  nit: '1234567-8',
-  direccion: 'Ciudad de Guatemala',
-  telefono: '+502 2222-3333',
+  nombre: process.env.EXPO_PUBLIC_TIENDA_NOMBRE || 'Glass Store',
+  nit: process.env.EXPO_PUBLIC_TIENDA_NIT || '1234567-8',
+  direccion: process.env.EXPO_PUBLIC_TIENDA_DIRECCION || 'Ciudad de Guatemala',
+  telefono: process.env.EXPO_PUBLIC_TIENDA_TELEFONO || '+502 2222-3333',
 };
 
-export const MONEDA = 'Q';
+export const MONEDA = process.env.EXPO_PUBLIC_MONEDA || 'Q';
 
 // Solo para mostrar un estimado en el carrito.
-// El cálculo final lo hace el microservicio de pedidos.
-export const IVA = 0.12;
+// El cálculo final lo hace el microservicio de pedidos (variable IVA en Render).
+export const IVA = Number(process.env.EXPO_PUBLIC_IVA || 0.12);
