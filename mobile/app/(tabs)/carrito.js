@@ -1,4 +1,7 @@
-// Pestaña CARRITO (ruta "/carrito"). El carrito vive en SQLite.
+// Pestaña CARRITO (ruta "/carrito")
+// El carrito vive en el servidor: lo que hay aquí está APARTADO (descontado
+// del stock). Al bajar la cantidad o quitar un producto, vuelve al stock.
+// Se guarda una copia en SQLite para verlo sin internet.
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -8,23 +11,56 @@ import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
 import ImagenProducto from '../../components/ImagenProducto';
 import Tarjeta from '../../components/Tarjeta';
+import { cambiarCantidadCarrito, obtenerCarrito } from '../../lib/api';
+import { useAuth } from '../../lib/AuthContext';
 import { IVA } from '../../lib/config';
-import { cambiarCantidad, leerCarrito } from '../../lib/db';
-import { dinero } from '../../lib/formato';
+import { guardarCache, leerCache } from '../../lib/db';
+import { dinero, hora } from '../../lib/formato';
 import { colores } from '../../lib/tema';
 
+const VACIO = { items: [], venceEn: null };
+
 export default function Carrito() {
-  const [items, setItems] = useState([]);
+  const { sesion, cerrarSesion } = useAuth();
+  const [carrito, setCarrito] = useState(() => leerCache('carrito') || VACIO);
+  const [ocupado, setOcupado] = useState(false); // evita tocar +/- dos veces seguidas
+  const [aviso, setAviso] = useState('');
 
-  // Cada vez que se abre esta pestaña, leemos el carrito de SQLite
-  const recargar = () => setItems(leerCarrito());
-  useFocusEffect(useCallback(recargar, []));
-
-  function cambiar(item, nuevaCantidad) {
-    cambiarCantidad(item.producto_id, item.talla, nuevaCantidad);
-    recargar();
+  function mostrar(nuevo) {
+    setCarrito(nuevo);
+    guardarCache('carrito', nuevo);
   }
 
+  function manejarError(e) {
+    if (e.status === 401) return cerrarSesion();
+    setAviso(e.message);
+  }
+
+  // Cada vez que se abre esta pestaña, pedimos el carrito al servidor
+  async function cargar() {
+    setAviso('');
+    try {
+      mostrar(await obtenerCarrito(sesion.token));
+    } catch (e) {
+      manejarError(e);
+    }
+  }
+  useFocusEffect(useCallback(() => { cargar(); }, []));
+
+  // + / − / quitar: el servidor reserva o devuelve la diferencia de stock
+  async function cambiar(item, nuevaCantidad) {
+    setAviso('');
+    setOcupado(true);
+    try {
+      mostrar(await cambiarCantidadCarrito(sesion.token, item.producto_id, item.talla, nuevaCantidad));
+    } catch (e) {
+      manejarError(e); // ej. "Solo quedan 2 unidades..."
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  const items = carrito.items;
   const subtotal = items.reduce((suma, i) => suma + i.precio * i.cantidad, 0);
   const impuesto = subtotal * IVA;
 
@@ -32,10 +68,24 @@ export default function Carrito() {
     <Fondo>
       <Encabezado titulo="Carrito" subtitulo={`${items.length} producto(s)`} />
 
+      {aviso ? <Text style={estilos.aviso}>{aviso}</Text> : null}
+
       <FlatList
         data={items}
         keyExtractor={(i) => `${i.producto_id}-${i.talla}`}
         contentContainerStyle={estilos.lista}
+        refreshing={false}
+        onRefresh={cargar}
+        ListHeaderComponent={
+          carrito.venceEn ? (
+            <View style={estilos.reserva}>
+              <Ionicons name="time-outline" size={16} color={colores.acento} />
+              <Text style={estilos.reservaTexto}>
+                Apartado para ti hasta las {hora(carrito.venceEn)}. Después vuelve al stock.
+              </Text>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <Tarjeta style={{ alignItems: 'center', paddingVertical: 42 }}>
             <Ionicons name="cart-outline" size={42} color={colores.textoSuave} />
@@ -52,11 +102,11 @@ export default function Carrito() {
               <Text style={estilos.importe}>{dinero(item.precio * item.cantidad)}</Text>
             </View>
             <View style={estilos.contador}>
-              <Pressable onPress={() => cambiar(item, item.cantidad - 1)} style={estilos.mini} hitSlop={6}>
+              <Pressable disabled={ocupado} onPress={() => cambiar(item, item.cantidad - 1)} style={estilos.mini} hitSlop={6}>
                 <Ionicons name={item.cantidad === 1 ? 'trash-outline' : 'remove'} size={15} color={colores.texto} />
               </Pressable>
               <Text style={estilos.cantidad}>{item.cantidad}</Text>
-              <Pressable onPress={() => cambiar(item, item.cantidad + 1)} style={estilos.mini} hitSlop={6}>
+              <Pressable disabled={ocupado} onPress={() => cambiar(item, item.cantidad + 1)} style={estilos.mini} hitSlop={6}>
                 <Ionicons name="add" size={15} color={colores.texto} />
               </Pressable>
             </View>
@@ -88,6 +138,9 @@ function Fila({ texto, valor, grande }) {
 
 const estilos = StyleSheet.create({
   lista: { paddingHorizontal: 20, paddingBottom: 120, gap: 12 },
+  aviso: { color: colores.error, backgroundColor: colores.errorFondo, marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8, fontSize: 13 },
+  reserva: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingHorizontal: 4 },
+  reservaTexto: { color: colores.textoSuave, fontSize: 12, flex: 1 },
   vacio: { color: colores.textoSuave, fontSize: 15, marginTop: 10 },
   item: { flexDirection: 'row', alignItems: 'center', padding: 14 },
   nombre: { color: colores.texto, fontWeight: '600', fontSize: 14 },

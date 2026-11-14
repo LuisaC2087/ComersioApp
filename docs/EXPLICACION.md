@@ -18,7 +18,7 @@ modificarlo.
 8. [La base de datos local (SQLite)](#8-la-base-de-datos-local-sqlite)
 9. [El estilo glassmorphism](#9-el-estilo-glassmorphism)
 10. [La factura en PDF](#10-la-factura-en-pdf)
-11. [Las imágenes de los productos](#11-las-imágenes-de-los-productos)
+11. [Las imágenes y el carrusel](#11-las-imágenes-y-el-carrusel)
 12. [El panel de administrador](#12-el-panel-de-administrador)
 13. [El despliegue en Render](#13-el-despliegue-en-render)
 14. [La documentación Swagger](#14-la-documentación-swagger)
@@ -35,12 +35,13 @@ El sistema tiene **tres capas**:
 │ 1. LA APP (lo que ve el usuario)                            │
 │    Expo / React Native. Funciona en el celular (Expo Go) y  │
 │    en el navegador (sitio tienda-web en Render).            │
-│    Guarda sesión, carrito y copias en SQLite (local).       │
+│    Guarda sesión y copias (caché) en SQLite (local).        │
 └──────────────┬──────────────────┬──────────────────┬────────┘
                │ HTTP + JSON      │                  │
 ┌──────────────▼───┐  ┌───────────▼──────┐  ┌────────▼─────────┐
 │ 2. usuarios      │  │ 2. productos     │  │ 2. pedidos       │
-│ login, registro  │  │ catálogo, stock  │  │ compras, factura │
+│ login, registro  │  │ catálogo, stock, │  │ carrito, compras │
+│                  │  │ carrusel         │  │ factura          │
 │ (Node + Express) │  │ (Node + Express) │  │ (Node + Express) │
 └──────────────┬───┘  └───────────┬──────┘  └────────┬─────────┘
                └──────────────────┼──────────────────┘
@@ -110,6 +111,14 @@ metodo_pago "Tarjeta ****1111" cantidad
 referencia_pago              precio      (copia del precio al comprar)
 estado      pagado|enviado|entregado|cancelado
 fecha
+
+carrito_items  (lo RESERVADO)          banners  (carrusel de inicio)
+─────────────────────────              ─────────────────────────
+usuario_id  ┐                          id          (PK)
+producto_id ├ PK (los tres juntos)     titulo, subtitulo
+talla       ┘                          imagen      URL o base64
+cantidad    (> 0)                      producto_id (opcional: a dónde lleva)
+actualizado (para el vencimiento)      orden, activo
 ```
 
 ### Puntos clave
@@ -119,6 +128,11 @@ fecha
   - `CHECK (stock >= 0)`: la base de datos rechaza un stock negativo.
   - `UNIQUE (producto_id, talla)`: no puede haber dos filas "M" del mismo producto.
   - `ON DELETE CASCADE`: si se borra un producto, sus tallas se borran solas.
+- **`carrito_items` es el carrito de cada usuario en el servidor.** Lo que está ahí
+  **ya salió del stock** (está reservado). Ver la sección 6.
+- **`banners`** guarda las imágenes del carrusel de la pantalla de inicio. Si se
+  borra el producto al que apunta un banner, `ON DELETE SET NULL` deja el banner
+  sin enlace en vez de borrarlo.
 - **`pedido_items` copia el nombre y el precio** del producto al momento de la
   compra. Si mañana el admin sube el precio o borra el producto, las facturas
   viejas no cambian.
@@ -194,6 +208,9 @@ prepararBaseDeDatos().then(() => app.listen(PORT));
 | `POST /productos` | admin | Crea un producto con sus tallas |
 | `PUT /productos/:id` | admin | Modifica datos, tallas, stock e imagen |
 | `DELETE /productos/:id` | admin | Elimina el producto (y sus tallas) |
+| `GET /banners` | todos | Banners activos del carrusel (`?todos=1` incluye ocultos) |
+| `GET /banners/:id` | todos | Un banner |
+| `POST` / `PUT` / `DELETE /banners` | admin | Crear, modificar y eliminar banners |
 
 **Cómo arma la respuesta.** Una sola consulta junta cada producto con sus tallas:
 
@@ -228,12 +245,19 @@ Si algo falla a la mitad, no queda un producto sin tallas.
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `POST /pedidos` | cliente | Compra (ver sección 6) |
+| `GET /carrito` | cliente | Su carrito, con hora de vencimiento de la reserva |
+| `POST /carrito` | cliente | Agregar: **reserva** (descuenta) el stock de esa talla |
+| `PUT /carrito` | cliente | Cambiar cantidad; la diferencia se reserva o **vuelve al stock** (0 = quitar) |
+| `POST /pedidos` | cliente | Pagar el carrito (ver sección 6) |
 | `GET /pedidos` | cliente | Su historial |
 | `GET /pedidos/:id` | cliente | Una factura **suya** (filtra por `usuario_id`) |
 | `GET /admin/pedidos` | admin | Todos los pedidos de la tienda |
 | `PUT /admin/pedidos/:id` | admin | Cambia el estado del pedido |
 
+- El carrito vive en este servicio porque es el comienzo de un pedido.
+- Los errores "esperados" (sin stock, carrito vacío, pago rechazado) se lanzan con
+  `errorHttp(codigo, mensaje)` dentro de la transacción: eso la cancela
+  (`ROLLBACK`) y el manejador de errores responde ese código con el mensaje.
 - El **número de factura** no se guarda: se calcula a partir del id
   (`7 → "FAC-000007"`) en la función `numeroFactura`.
 - El **pago simulado** está aislado en `pago-simulado.js`: valida el formato de la
@@ -283,59 +307,106 @@ Se ponen delante de la ruta: `app.post('/productos', soloAdmin, async (req, res)
 
 ## 6. La compra paso a paso
 
-Esta es la parte más delicada, porque mueve stock y dinero (simulado).
+Esta es la parte más delicada, porque mueve stock y dinero (simulado). Tiene dos
+momentos: **agregar al carrito** (se aparta el stock) y **pagar** (se convierte en venta).
 
-### Lo que manda la app
+### 6.1 Agregar al carrito = reservar stock
+
+Cuando el cliente toca "Añadir al carrito", la app manda:
 
 ```json
-POST /pedidos
+POST /carrito
 Authorization: Bearer <token>
-{
-  "items": [ { "productoId": 1, "talla": "M", "cantidad": 2 } ],
-  "pago":  { "titular": "Ana", "numeroTarjeta": "4111 1111 1111 1111",
-             "vencimiento": "12/28", "cvv": "123" }
-}
+{ "productoId": 1, "talla": "M", "cantidad": 2 }
 ```
 
-Fíjate que **no manda precios**. Si los mandara, alguien podría cambiarlos y
-comprar a Q 0.01.
-
-### Lo que hace el servidor (todo dentro de UNA transacción)
+y el servidor, en **una transacción**:
 
 ```
 BEGIN
- │
- ├─ 1. Por cada producto, descontar el stock de SU TALLA:
- │      UPDATE producto_tallas SET stock = stock - 2
- │       WHERE producto_id = 1 AND talla = 'M' AND stock >= 2
- │      RETURNING nombre, precio      ← precio REAL desde la tabla productos
- │
- │      Si no actualizó ninguna fila (no hay stock suficiente):
- │      → ROLLBACK y responde 409 "Solo quedan 1 unidades de ... en talla M"
- │
- ├─ 2. Calcular subtotal, IVA (12%) y total con los precios reales
- │
+ ├─ UPDATE producto_tallas SET stock = stock - 2
+ │   WHERE producto_id = 1 AND talla = 'M' AND stock >= 2
+ │   → si no actualizó ninguna fila: ROLLBACK y 409 "Solo quedan 1 unidades…"
+ ├─ INSERT en carrito_items (o suma la cantidad si ya estaba)
+ └─ renueva la hora "actualizado" de todo el carrito del usuario
+COMMIT
+```
+
+Desde ese momento **los demás clientes ya no ven esas 2 unidades**: el stock bajó.
+
+**Quitar o cambiar cantidad** (`PUT /carrito`) mueve solo la **diferencia**:
+
+| El carrito tenía | Pasa a | Qué pasa con el stock |
+|---|---|---|
+| 3 | 5 | se reservan 2 más (si hay) |
+| 3 | 1 | vuelven 2 al stock |
+| 3 | 0 | vuelven 3 al stock y se borra la fila |
+
+Todo esto está en la función `moverStock()`:
+cantidad positiva = sale del stock, negativa = vuelve.
+
+### 6.2 ¿Y si alguien agrega y nunca paga? (vencimiento de la reserva)
+
+Si no hubiera vencimiento, un carrito abandonado bloquearía el stock para siempre.
+Por eso la reserva **dura `RESERVA_MINUTOS` minutos (30 por defecto)** desde el
+último cambio del carrito. La función `liberarReservasVencidas()`:
+
+```sql
+WITH vencidos AS (
+  DELETE FROM carrito_items
+   WHERE actualizado < NOW() - 30 minutos
+   RETURNING producto_id, talla, cantidad          -- lo que se borró…
+)
+UPDATE producto_tallas SET stock = stock + total   -- …vuelve al stock
+  FROM (SELECT producto_id, talla, SUM(cantidad) AS total FROM vencidos GROUP BY ...)
+```
+
+Se ejecuta **cada minuto** (`setInterval`) y además antes de leer un carrito o de
+pagar. La app muestra "Apartado para ti hasta las 11:38" en el carrito.
+
+> El `SUM(...) GROUP BY` es importante: si dos clientes tenían reservada la misma
+> talla, hay que devolver la suma de ambos, no solo uno.
+
+### 6.3 Pagar
+
+La app solo manda los datos de la tarjeta:
+
+```json
+POST /pedidos
+{ "pago": { "titular": "Ana", "numeroTarjeta": "4111 1111 1111 1111",
+            "vencimiento": "12/28", "cvv": "123" } }
+```
+
+Fíjate que **no manda productos ni precios**: el servidor usa el carrito que ya
+tiene guardado y los precios de la tabla `productos`. Así nadie puede cambiar un
+precio desde el celular para comprar a $0.01.
+
+```
+BEGIN
+ ├─ 1. Leer carrito_items del usuario + precio REAL de productos
+ │      (si está vacío o venció → 400 "Tu carrito está vacío…")
+ ├─ 2. Calcular subtotal, IVA (12%) y total
  ├─ 3. Simular el pago
- │      Si se rechaza → ROLLBACK (el stock vuelve) y responde 402
- │
+ │      Si se rechaza → ROLLBACK y 402. El carrito queda igual (sigue reservado)
  ├─ 4. INSERT en pedidos + INSERT en pedido_items
- │
+ └─ 5. DELETE del carrito (el stock NO vuelve: ya se vendió)
 COMMIT → responde 201 con la factura completa
 ```
 
+El stock **no se descuenta al pagar**, porque ya se descontó al agregar al carrito.
+
 ### ¿Por qué `stock >= cantidad` dentro del UPDATE?
 
-Imagina que queda **1** unidad y dos personas compran al mismo tiempo. Si el código
+Imagina que queda **1** unidad y dos personas la agregan al mismo tiempo. Si el código
 hiciera "leer el stock → ver que hay 1 → restar", ambas podrían leer "1" antes de
-que la otra reste, y se venderían 2. Con el `UPDATE ... WHERE stock >= cantidad`,
-PostgreSQL bloquea la fila: la primera compra la deja en 0 y la segunda ya no
-cumple la condición. **Nunca se vende de más.**
+que la otra reste, y se apartarían 2. Con el `UPDATE ... WHERE stock >= cantidad`,
+PostgreSQL bloquea la fila: la primera la deja en 0 y la segunda ya no cumple la
+condición. **Nunca se reserva de más.** Además la tabla tiene `CHECK (stock >= 0)`.
 
-### ¿Por qué una transacción?
+### ¿Por qué transacciones?
 
-Si el carrito tiene 3 productos y el tercero no tiene stock, los dos primeros ya
-se habían descontado. El `ROLLBACK` deshace **todo**: el stock queda exactamente
-como estaba. Lo mismo si el pago se rechaza. Es "todo o nada".
+Si algo falla a la mitad (pago rechazado, error de red, sin stock), el `ROLLBACK`
+deshace **todo** lo que se hizo dentro de esa transacción. Es "todo o nada".
 
 ---
 
@@ -360,7 +431,9 @@ mobile/app/
 └── admin/
     ├── index.js          → /admin              Resumen y pedidos
     ├── productos.js      → /admin/productos    Lista de productos
-    └── producto.js       → /admin/producto     Crear (o ?id=5 para editar)
+    ├── producto.js       → /admin/producto     Crear (o ?id=5 para editar)
+    ├── banners.js        → /admin/banners      Carrusel de inicio
+    └── banner.js         → /admin/banner       Crear/editar banner (?id=3)
 ```
 
 Para navegar se usa `router.push('/producto/5')`, `router.back()` o
@@ -397,8 +470,9 @@ const { sesion, iniciarSesion, cerrarSesion } = useAuth();
 
 - `iniciarSesion` la guarda en SQLite y en el estado de React.
 - Al abrir la app, se lee de SQLite: el usuario sigue conectado.
-- `cerrarSesion` borra sesión, carrito y caché (para que otro usuario del mismo
-  teléfono no vea los datos).
+- `cerrarSesion` borra sesión y caché del teléfono (para que otro usuario del mismo
+  teléfono no vea los datos). El carrito queda en el servidor: si vuelves a entrar
+  antes de que venza la reserva, lo encuentras igual, incluso desde otro teléfono.
 - Si el servidor responde **401** (token vencido), las pantallas llaman a
   `cerrarSesion()` y el usuario vuelve al login.
 
@@ -434,10 +508,10 @@ usuarios: process.env.EXPO_PUBLIC_USUARIOS_URL || 'https://tienda-usuarios.onren
 | Pantalla | Qué hace |
 |---|---|
 | `login.js` / `registro.js` | Formularios; llaman a la API e `iniciarSesion` |
-| `(tabs)/index.js` | Catálogo: pide productos y categorías; filtrar por categoría vuelve a consultar al servidor; muestra "Agotado" |
-| `producto/[id].js` | Pide el producto; chips de talla (las agotadas aparecen tachadas y no se pueden elegir); la cantidad no puede superar el stock de la talla elegida |
-| `(tabs)/carrito.js` | Lee el carrito de SQLite cada vez que se abre la pestaña (`useFocusEffect`) |
-| `pago.js` | Formulario con formato automático de tarjeta; llama a `crearPedido`; vacía el carrito y abre la factura |
+| `(tabs)/index.js` | Catálogo: **carrusel** de promociones arriba, filtros por categoría y productos; se vuelve a consultar cada vez que abres la pestaña (el stock cambia cuando otros reservan) |
+| `producto/[id].js` | Pide el producto; chips de talla (las agotadas tachadas); "Añadir" llama a `POST /carrito`, que **aparta el stock**; si alguien se llevó las últimas unidades muestra el error y recarga el stock |
+| `(tabs)/carrito.js` | Pide el carrito al servidor cada vez que se abre la pestaña; +/−/papelera llaman a `PUT /carrito` (reserva o devuelve stock); muestra hasta qué hora dura la reserva |
+| `pago.js` | Formulario con formato automático de tarjeta; llama a `crearPedido` (solo manda la tarjeta) y abre la factura |
 | `factura/[id].js` | Muestra la factura y los botones Descargar PDF / Imprimir |
 | `(tabs)/historial.js` | Compras del usuario con su estado |
 | `(tabs)/perfil.js` | Datos del usuario; si es admin, botón al panel |
@@ -452,12 +526,12 @@ Archivo: `mobile/lib/db.js`. Se crea en el teléfono la primera vez:
 | Tabla | Qué guarda | Por qué |
 |---|---|---|
 | `sesion` | token y usuario (una sola fila, `id = 1`) | No pedir login cada vez |
-| `carrito` | producto, talla, precio, cantidad | El carrito sobrevive si cierras la app |
-| `cache` | clave → JSON (`productos`, `historial`, `pedido-12`) | Ver catálogo y compras sin internet |
+| `cache` | clave → JSON (`productos`, `banners`, `carrito`, `historial`, `pedido-12`) | Ver catálogo, carrusel, carrito y compras sin internet |
 
-- El carrito usa `PRIMARY KEY (producto_id, talla)` y
-  `ON CONFLICT ... DO UPDATE SET cantidad = cantidad + ...`: si agregas otra vez la
-  misma camisa en talla M, suma la cantidad en vez de duplicar la fila.
+- **¿Por qué el carrito ya no es una tabla del teléfono?** Porque ahora reserva
+  stock que comparten todos los clientes: el servidor tiene que saber qué apartó
+  cada quien. El teléfono guarda solo una **copia** en `cache` para mostrarla sin
+  internet. (La tabla `carrito` de versiones anteriores se borra sola al abrir la app.)
 - **Modo sin conexión**: cada pantalla intenta primero el servidor; si falla, usa
   la copia de `cache` y muestra un aviso.
 
@@ -524,6 +598,7 @@ blur respete las esquinas redondeadas) recortaría la sombra.
 | `Encabezado` | Título, subtítulo y botón volver |
 | `ImagenProducto` | Foto del producto o ícono si no tiene |
 | `EstadoPedido` | Etiqueta de color: pagado / enviado / entregado / cancelado |
+| `Carrusel` | Banners de modelos y promociones en el catálogo (ver sección 11) |
 
 Cambiar `Boton.js` cambia **todos** los botones de la app.
 
@@ -546,7 +621,7 @@ marcos ocultos. jsPDF genera un archivo PDF real que funciona en cualquier lado.
 
 ---
 
-## 11. Las imágenes de los productos
+## 11. Las imágenes y el carrusel
 
 En el formulario del administrador hay dos formas de poner la foto:
 
@@ -558,6 +633,23 @@ En el formulario del administrador hay dos formas de poner la foto:
 
 El componente `ImagenProducto` muestra lo que haya en `imagen` (las dos formas
 funcionan igual en `<Image source={{ uri }}>`), o un ícono si está vacío.
+
+La función que abre la galería está en **`lib/elegirImagen.js`** y la usan los dos
+formularios: el de producto (recorte cuadrado `[1, 1]`) y el de banner (recorte
+panorámico `[16, 9]`).
+
+### El carrusel de inicio (`components/Carrusel.js`)
+
+- Recibe la lista de banners y dibuja un `ScrollView` horizontal con
+  `pagingEnabled` (se detiene en cada banner al deslizar con el dedo).
+- **Avanza solo** cada 4 segundos (`SEGUNDOS`) con un `setInterval` que llama a
+  `scrollTo` y vuelve al primero al llegar al final.
+- Mide su ancho real con `onLayout`, para que cada banner ocupe exactamente la
+  pantalla, sea un celular o una computadora.
+- Encima de cada foto hay un **degradado oscuro abajo** (`LinearGradient`) para
+  que el título blanco se lea sobre cualquier imagen.
+- Los **puntos** de abajo indican cuál banner se ve.
+- Si el banner tiene un producto asociado, al tocarlo abre ese producto.
 
 > **¿Por qué en la base de datos y no en una carpeta?** El disco de Render gratis
 > se borra en cada reinicio o despliegue: las fotos se perderían. En PostgreSQL
@@ -576,6 +668,12 @@ Entrada: iniciar sesión como `admin@tienda.com` → pestaña **Perfil** →
 | `admin/index.js` | Tarjetas de resumen (ventas sin cancelados, nº de pedidos, productos agotados) y lista de todos los pedidos; tocar un estado lo asigna | `GET /admin/pedidos`, `PUT /admin/pedidos/:id`, `GET /productos` |
 | `admin/productos.js` | Lista con stock total y por talla (`S 5 · M 0 · L 3`), editar y eliminar (con confirmación) | `GET /productos`, `DELETE /productos/:id` |
 | `admin/producto.js` | Formulario: foto, datos, y **editor de tallas** (filas talla + stock, agregar/quitar filas, total en vivo) | `GET /productos/:id`, `POST` / `PUT /productos` |
+| `admin/banners.js` | Lista del **carrusel de inicio**: miniatura, visible/oculto, orden, editar y eliminar | `GET /banners?todos=1`, `DELETE /banners/:id` |
+| `admin/banner.js` | Formulario de banner: foto panorámica (galería o URL), título, subtítulo, orden, interruptor "Visible" y producto al que lleva al tocarlo | `GET /banners/:id`, `POST` / `PUT /banners` |
+
+> **El stock que ve el admin es el disponible**: no incluye lo que los clientes
+> tienen apartado en sus carritos. Si un cliente agrega 2 camisas M, el admin verá
+> 2 menos; si la reserva vence o el cliente las quita, vuelven a aparecer.
 
 El cliente ve los cambios de estado en **Mis compras** y en la factura.
 
@@ -627,4 +725,9 @@ harían distinto:
   petición tarda ~1 minuto.
 - **Cancelar un pedido no devuelve el stock**: el admin puede corregirlo editando
   el producto.
+- **Editar las tallas de un producto mientras alguien lo tiene en el carrito**: si
+  el admin borra una talla que estaba reservada, al vencer o quitarse esa reserva
+  no hay a dónde devolver las unidades (se pierden de la cuenta).
+- **Reserva de 30 minutos**: es un equilibrio. Muy corta molesta al cliente; muy
+  larga deja productos apartados que nadie compra. Se ajusta con `RESERVA_MINUTOS`.
 - **Token de 7 días sin cierre remoto**: si se roba un token, sirve hasta que vence.

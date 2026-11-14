@@ -78,6 +78,9 @@ services:
       - fromGroup: tienda-secretos
       - key: IVA
         value: "0.12"
+      # Minutos que un producto queda apartado en el carrito sin pagar
+      - key: RESERVA_MINUTOS
+        value: "30"
 
   # ---------- Frontend: la app Expo exportada para navegador ----------
   - type: web
@@ -95,7 +98,7 @@ services:
       - key: EXPO_PUBLIC_PEDIDOS_URL
         value: https://tienda-pedidos-brue.onrender.com
       - key: EXPO_PUBLIC_MONEDA
-        value: Q
+        value: $
       - key: EXPO_PUBLIC_IVA
         value: "0.12"
       - key: EXPO_PUBLIC_TIENDA_NOMBRE

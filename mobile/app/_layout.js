@@ -43,6 +43,8 @@ function Navegacion() {
         <Stack.Screen name="admin/index" />
         <Stack.Screen name="admin/productos" />
         <Stack.Screen name="admin/producto" />
+        <Stack.Screen name="admin/banners" />
+        <Stack.Screen name="admin/banner" />
       </Stack.Protected>
 
       {/* Solo sin sesión */}

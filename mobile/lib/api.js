@@ -45,11 +45,27 @@ export const obtenerProducto = (id) => pedir(`${API.productos}/productos/${id}`)
 
 export const obtenerCategorias = () => pedir(`${API.productos}/categorias`);
 
-// ---------- Servicio de pedidos ----------
-// items: [{ productoId, talla, cantidad }]
-// pago:  { titular, numeroTarjeta, vencimiento, cvv }
-export const crearPedido = (token, items, pago) =>
-  pedir(`${API.pedidos}/pedidos`, { metodo: 'POST', cuerpo: { items, pago }, token });
+// Banners del carrusel de inicio (todos = true incluye los ocultos, para el admin)
+export const obtenerBanners = (todos) => pedir(`${API.productos}/banners${todos ? '?todos=1' : ''}`);
+
+export const obtenerBanner = (id) => pedir(`${API.productos}/banners/${id}`);
+
+// ---------- Servicio de pedidos: carrito ----------
+// El carrito vive en el servidor: al agregar, el stock se RESERVA (se descuenta);
+// al quitar, vuelve al stock. Todas devuelven { items, minutosReserva, venceEn }.
+export const obtenerCarrito = (token) => pedir(`${API.pedidos}/carrito`, { token });
+
+export const agregarAlCarrito = (token, productoId, talla, cantidad) =>
+  pedir(`${API.pedidos}/carrito`, { metodo: 'POST', cuerpo: { productoId, talla, cantidad }, token });
+
+// cantidad = 0 quita el producto del carrito
+export const cambiarCantidadCarrito = (token, productoId, talla, cantidad) =>
+  pedir(`${API.pedidos}/carrito`, { metodo: 'PUT', cuerpo: { productoId, talla, cantidad }, token });
+
+// ---------- Servicio de pedidos: compras ----------
+// Paga lo que hay en el carrito. pago: { titular, numeroTarjeta, vencimiento, cvv }
+export const crearPedido = (token, pago) =>
+  pedir(`${API.pedidos}/pedidos`, { metodo: 'POST', cuerpo: { pago }, token });
 
 export const obtenerHistorial = (token) => pedir(`${API.pedidos}/pedidos`, { token });
 
@@ -64,6 +80,15 @@ export const actualizarProducto = (token, id, datos) =>
 
 export const eliminarProducto = (token, id) =>
   pedir(`${API.productos}/productos/${id}`, { metodo: 'DELETE', token });
+
+export const crearBanner = (token, datos) =>
+  pedir(`${API.productos}/banners`, { metodo: 'POST', cuerpo: datos, token });
+
+export const actualizarBanner = (token, id, datos) =>
+  pedir(`${API.productos}/banners/${id}`, { metodo: 'PUT', cuerpo: datos, token });
+
+export const eliminarBanner = (token, id) =>
+  pedir(`${API.productos}/banners/${id}`, { metodo: 'DELETE', token });
 
 export const obtenerPedidosAdmin = (token) => pedir(`${API.pedidos}/admin/pedidos`, { token });
 

@@ -70,6 +70,12 @@ export default function PanelAdmin() {
               icono="pricetags-outline"
               onPress={() => router.push('/admin/productos')}
             />
+            <Boton
+              titulo="Carrusel de inicio"
+              icono="images-outline"
+              variante="vidrio"
+              onPress={() => router.push('/admin/banners')}
+            />
             {error ? <Text style={estilos.error}>{error}</Text> : null}
             <Text style={estilos.seccion}>Pedidos</Text>
           </View>

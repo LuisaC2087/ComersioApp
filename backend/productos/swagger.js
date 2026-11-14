@@ -45,6 +45,30 @@ module.exports = {
           imagen: { type: 'string', nullable: true },
         },
       },
+      Banner: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          titulo: { type: 'string', example: 'Nueva colección' },
+          subtitulo: { type: 'string', example: 'Hasta 30% de descuento' },
+          imagen: { type: 'string', description: 'URL https o foto en base64' },
+          producto_id: { type: 'integer', nullable: true, description: 'Producto que se abre al tocar el banner' },
+          orden: { type: 'integer', example: 0 },
+          activo: { type: 'boolean', example: true },
+        },
+      },
+      BannerNuevo: {
+        type: 'object',
+        required: ['titulo', 'imagen'],
+        properties: {
+          titulo: { type: 'string', example: 'Nueva colección' },
+          subtitulo: { type: 'string', example: 'Hasta 30% de descuento' },
+          imagen: { type: 'string', example: 'https://...' },
+          productoId: { type: 'integer', nullable: true, example: 1 },
+          orden: { type: 'integer', example: 0 },
+          activo: { type: 'boolean', example: true },
+        },
+      },
       Error: { type: 'object', properties: { error: { type: 'string' } } },
     },
   },
@@ -109,6 +133,56 @@ module.exports = {
         summary: 'Listar las categorías',
         responses: {
           200: { description: 'Nombres de categoría', content: { 'application/json': { schema: { type: 'array', items: { type: 'string' }, example: ['Camisas', 'Calzado'] } } } },
+        },
+      },
+    },
+    '/banners': {
+      get: {
+        summary: 'Banners del carrusel de inicio (modelos y promociones)',
+        parameters: [
+          { name: 'todos', in: 'query', required: false, schema: { type: 'string' }, description: 'Con cualquier valor incluye los banners ocultos' },
+        ],
+        responses: {
+          200: { description: 'Banners ordenados', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Banner' } } } } },
+        },
+      },
+      post: {
+        summary: 'Crear un banner (solo admin)',
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/BannerNuevo' } } } },
+        responses: {
+          201: { description: 'Banner creado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Banner' } } } },
+          400: { description: 'Falta título o imagen', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          403: { description: 'No es administrador', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
+    '/banners/{id}': {
+      get: {
+        summary: 'Ver un banner',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          200: { description: 'Banner', content: { 'application/json': { schema: { $ref: '#/components/schemas/Banner' } } } },
+          404: { description: 'No encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      put: {
+        summary: 'Modificar un banner (solo admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/BannerNuevo' } } } },
+        responses: {
+          200: { description: 'Banner actualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Banner' } } } },
+          404: { description: 'No encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      delete: {
+        summary: 'Eliminar un banner (solo admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          200: { description: 'Eliminado' },
+          404: { description: 'No encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },
     },

@@ -1,17 +1,17 @@
 // PAGO SIMULADO (ruta "/pago")
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Boton from '../components/Boton';
 import Campo from '../components/Campo';
 import Encabezado from '../components/Encabezado';
 import Fondo from '../components/Fondo';
 import Tarjeta from '../components/Tarjeta';
-import { crearPedido } from '../lib/api';
+import { crearPedido, obtenerCarrito } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
 import { IVA } from '../lib/config';
-import { guardarCache, leerCarrito, vaciarCarrito } from '../lib/db';
+import { guardarCache, leerCache } from '../lib/db';
 import { dinero } from '../lib/formato';
 import { colores } from '../lib/tema';
 
@@ -29,23 +29,27 @@ export default function Pago() {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState('');
 
-  const carrito = leerCarrito();
-  const subtotal = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0);
+  // Mostramos el total del carrito guardado y lo actualizamos desde el servidor
+  const [items, setItems] = useState(() => leerCache('carrito')?.items || []);
+  useEffect(() => {
+    obtenerCarrito(sesion.token).then((c) => setItems(c.items)).catch(() => {});
+  }, []);
+  const subtotal = items.reduce((s, i) => s + i.precio * i.cantidad, 0);
 
   async function pagar() {
     setError('');
     setProcesando(true);
     try {
-      // Solo enviamos id, talla y cantidad: el servidor usa los precios reales
-      const items = carrito.map((i) => ({ productoId: i.producto_id, talla: i.talla, cantidad: i.cantidad }));
-      const pedido = await crearPedido(sesion.token, items, {
+      // Solo mandamos los datos de la tarjeta: el servidor cobra lo que hay
+      // en el carrito (ya reservado) con los precios reales
+      const pedido = await crearPedido(sesion.token, {
         titular,
         numeroTarjeta: numero,
         vencimiento,
         cvv,
       });
 
-      vaciarCarrito();
+      guardarCache('carrito', { items: [], venceEn: null });
       guardarCache(`pedido-${pedido.id}`, pedido);
       // "replace" para que al volver no regrese al formulario de pago
       router.replace(`/factura/${pedido.id}?nuevo=1`);
@@ -111,7 +115,7 @@ export default function Pago() {
           icono="lock-closed-outline"
           onPress={pagar}
           cargando={procesando}
-          deshabilitado={carrito.length === 0}
+          deshabilitado={items.length === 0}
         />
       </ScrollView>
     </Fondo>

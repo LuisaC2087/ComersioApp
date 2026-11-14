@@ -6,7 +6,7 @@ module.exports = {
     title: 'Servicio de Pedidos',
     version: '1.0.0',
     description:
-      'Compras con pago simulado, facturas e historial. Al comprar se descuenta el stock y se usan los precios reales de la base de datos. Todas las rutas requieren token.',
+      'Carrito con reserva de stock, compras con pago simulado, facturas e historial. Al agregar al carrito el stock se reserva; si la reserva vence (RESERVA_MINUTOS) vuelve al stock. Todas las rutas requieren token.',
   },
   components: {
     securitySchemes: {
@@ -40,22 +40,41 @@ module.exports = {
           items: { type: 'array', items: { $ref: '#/components/schemas/Item' } },
         },
       },
-      CompraNueva: {
+      Carrito: {
         type: 'object',
-        required: ['items', 'pago'],
         properties: {
           items: {
             type: 'array',
             items: {
               type: 'object',
-              required: ['productoId', 'talla', 'cantidad'],
               properties: {
-                productoId: { type: 'integer', example: 1 },
+                producto_id: { type: 'integer', example: 1 },
                 talla: { type: 'string', example: 'M' },
                 cantidad: { type: 'integer', example: 2 },
+                nombre: { type: 'string', example: 'Camisa Oxford' },
+                precio: { type: 'number', example: 189.0 },
+                imagen: { type: 'string', nullable: true },
               },
             },
           },
+          minutosReserva: { type: 'integer', example: 30 },
+          venceEn: { type: 'string', format: 'date-time', nullable: true, description: 'Cuándo vuelven las unidades al stock si no se paga' },
+        },
+      },
+      CambioCarrito: {
+        type: 'object',
+        required: ['productoId', 'talla', 'cantidad'],
+        properties: {
+          productoId: { type: 'integer', example: 1 },
+          talla: { type: 'string', example: 'M' },
+          cantidad: { type: 'integer', example: 2 },
+        },
+      },
+      CompraNueva: {
+        type: 'object',
+        required: ['pago'],
+        description: 'Se compra lo que el usuario tiene en su carrito (GET /carrito)',
+        properties: {
           pago: {
             type: 'object',
             required: ['titular', 'numeroTarjeta', 'vencimiento', 'cvv'],
@@ -76,14 +95,39 @@ module.exports = {
     '/': {
       get: { summary: 'Estado del servicio', security: [], responses: { 200: { description: 'ok' } } },
     },
+    '/carrito': {
+      get: {
+        summary: 'Ver el carrito (lo que el usuario tiene reservado)',
+        responses: {
+          200: { description: 'Carrito', content: { 'application/json': { schema: { $ref: '#/components/schemas/Carrito' } } } },
+        },
+      },
+      post: {
+        summary: 'Agregar al carrito: reserva (descuenta) el stock de esa talla',
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CambioCarrito' } } } },
+        responses: {
+          201: { description: 'Carrito actualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Carrito' } } } },
+          409: { description: 'Sin stock suficiente en esa talla', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+      put: {
+        summary: 'Cambiar la cantidad (0 = quitar). La diferencia se reserva o vuelve al stock',
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CambioCarrito' } } } },
+        responses: {
+          200: { description: 'Carrito actualizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Carrito' } } } },
+          404: { description: 'El producto no está en el carrito', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          409: { description: 'Sin stock suficiente en esa talla', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        },
+      },
+    },
     '/pedidos': {
       post: {
-        summary: 'Comprar: descuenta stock, simula el pago y guarda la factura',
+        summary: 'Pagar el carrito: simula el pago, guarda la factura y vacía el carrito',
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/CompraNueva' } } } },
         responses: {
           201: { description: 'Compra realizada (factura)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Pedido' } } } },
-          402: { description: 'Pago rechazado (simulado)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-          409: { description: 'Sin stock suficiente en esa talla', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          400: { description: 'Carrito vacío o reserva vencida', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          402: { description: 'Pago rechazado (simulado); el carrito sigue reservado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },
       get: {

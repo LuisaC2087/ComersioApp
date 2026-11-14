@@ -25,7 +25,7 @@ export const TIENDA = {
   telefono: process.env.EXPO_PUBLIC_TIENDA_TELEFONO || '+502 2222-3333',
 };
 
-export const MONEDA = process.env.EXPO_PUBLIC_MONEDA || 'Q';
+export const MONEDA = process.env.EXPO_PUBLIC_MONEDA || '$';
 
 // Solo para mostrar un estimado en el carrito.
 // El cálculo final lo hace el microservicio de pedidos (variable IVA en Render).

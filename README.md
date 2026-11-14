@@ -11,8 +11,9 @@ conectada a **3 microservicios en Node.js** desplegados en **Render**, con una b
 **Como cliente**
 - Registro e inicio de sesión (contraseñas encriptadas y token JWT)
 - Catálogo con fotos reales, filtro por categoría y **stock por talla** (tallas agotadas tachadas)
-- Carrito guardado en el teléfono (SQLite)
-- Pago **simulado** que descuenta stock, factura en pantalla, **PDF descargable** e impresión
+- **Carrusel** de modelos y promociones en la pantalla de inicio
+- Carrito con **reserva de stock**: al agregar, las unidades se apartan; al quitarlas vuelven al stock; si no se paga en 30 minutos, vuelven solas
+- Pago **simulado**, factura en pantalla, **PDF descargable** e impresión
 - Historial de compras con el estado del pedido (pagado → enviado → entregado)
 - Modo sin conexión: catálogo y compras guardados en SQLite
 
@@ -20,6 +21,7 @@ conectada a **3 microservicios en Node.js** desplegados en **Render**, con una b
 - Resumen de la tienda: ventas, pedidos y productos agotados
 - Crear, editar y eliminar productos; cambiar precio, **tallas con su stock** e **imagen**
 - Subir la foto del producto desde la galería o pegar una URL
+- Administrar el **carrusel de inicio**: subir banners, ordenarlos, ocultarlos y enlazarlos a un producto
 - Cambiar el estado de cada pedido
 
 **Para desarrolladores**
@@ -44,7 +46,7 @@ son rechazadas, para probar errores.
                  ┌──────────────────────────────┐
                  │  APP EXPO (celular o web)    │
                  │  SQLite local:               │
-                 │   sesión · carrito · caché   │
+                 │   sesión · caché (copias)    │
                  └──────┬─────────┬─────────┬───┘
                         │ HTTPS   │         │
           ┌─────────────▼──┐ ┌────▼──────┐ ┌▼──────────────────┐
@@ -68,10 +70,11 @@ son rechazadas, para probar errores.
 
 - **usuarios**: cuentas y login. El token JWT lleva el **rol** (`cliente` o `admin`).
 - **productos**: catálogo con stock e imagen. Las rutas de escritura piden rol `admin`.
-- **pedidos**: la compra ocurre en **una transacción**: descuenta el stock de cada
-  **talla** (`UPDATE producto_tallas ... WHERE stock >= cantidad`), toma los **precios reales** de la tabla
-  de productos, simula el pago y guarda la factura. Si algo falla, nada se guarda
-  y el stock vuelve a quedar como estaba.
+- **pedidos**: el **carrito vive en el servidor**. Agregar al carrito descuenta el
+  stock de la talla (`UPDATE producto_tallas ... WHERE stock >= cantidad`); quitar lo
+  devuelve; las reservas sin pagar vencen a los `RESERVA_MINUTOS` (30). Al pagar, en
+  una transacción, toma los **precios reales**, simula el pago, guarda la factura y
+  vacía el carrito.
 - Los 3 servicios comparten el `JWT_SECRET` (validan el token sin llamarse entre sí)
   y la misma base de datos PostgreSQL.
 - **Las imágenes** se guardan en la columna `imagen` de la tabla `productos`:
@@ -83,7 +86,7 @@ son rechazadas, para probar errores.
 | Base de datos | Dónde vive | Qué guarda |
 |---|---|---|
 | **PostgreSQL** | Render (en línea) | La información oficial: usuarios, productos (stock, imagen), pedidos |
-| **SQLite** | El teléfono | La sesión, el carrito y una copia del catálogo y del historial para verlos sin internet |
+| **SQLite** | El teléfono | La sesión y copias del catálogo, carrito e historial para verlos sin internet |
 
 En el navegador, el papel de SQLite lo hace `localStorage` (`mobile/lib/db.web.js`).
 
@@ -152,6 +155,7 @@ ComercioApp/
 | los 3 del backend | `DATABASE_SSL` | Opcional: `true`/`false` para forzar SSL con otra base |
 | los 3 del backend | `JWT_SECRET` | Secreto de los tokens (grupo `tienda-secretos`, igual en los 3) |
 | pedidos | `IVA` | Impuesto, ej. `0.12` |
+| pedidos | `RESERVA_MINUTOS` | Minutos que un producto queda apartado en el carrito sin pagar (30) |
 | tienda-web | `EXPO_PUBLIC_USUARIOS_URL` / `_PRODUCTOS_URL` / `_PEDIDOS_URL` | URLs públicas de los microservicios |
 | tienda-web | `EXPO_PUBLIC_MONEDA`, `EXPO_PUBLIC_IVA`, `EXPO_PUBLIC_TIENDA_…` | Moneda, IVA y datos de la factura |
 
@@ -185,6 +189,8 @@ External Database URL de Render), y luego `npm install` y `npm run dev`.
 |---|---|
 | Cambiar colores o el estilo de vidrio | `mobile/lib/tema.js` |
 | Agregar/editar productos, stock e imágenes | En la app: Perfil → Panel de administración |
+| Cambiar las imágenes del carrusel de inicio | Panel de administración → Carrusel de inicio |
+| Cambiar cada cuánto avanza el carrusel | `SEGUNDOS` en `mobile/components/Carrusel.js` |
 | Cambiar nombre, NIT, moneda, IVA | Variables de entorno (tabla de arriba) |
 | Cambiar las reglas del pago simulado | `backend/pedidos/pago-simulado.js` |
 | Cambiar el diseño de la factura | `mobile/lib/facturaPdf.js` (celular) y `facturaPdf.web.js` (web) |

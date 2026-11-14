@@ -1,12 +1,13 @@
-// Pestaña CATÁLOGO (ruta "/")
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+// Pestaña CATÁLOGO (ruta "/"): carrusel de promociones + filtros + productos
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Carrusel from '../../components/Carrusel';
 import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
 import ImagenProducto from '../../components/ImagenProducto';
 import Tarjeta from '../../components/Tarjeta';
-import { obtenerCategorias, obtenerProductos } from '../../lib/api';
+import { obtenerBanners, obtenerCategorias, obtenerProductos } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { guardarCache, leerCache } from '../../lib/db';
 import { dinero } from '../../lib/formato';
@@ -15,6 +16,7 @@ import { colores } from '../../lib/tema';
 export default function Catalogo() {
   const { sesion } = useAuth();
   const [productos, setProductos] = useState([]);
+  const [banners, setBanners] = useState(() => leerCache('banners') || []);
   const [categorias, setCategorias] = useState(['Todos']);
   const [categoria, setCategoria] = useState('Todos');
   const [cargando, setCargando] = useState(true);
@@ -26,9 +28,15 @@ export default function Catalogo() {
     setAviso('');
     try {
       const filtro = categoria === 'Todos' ? null : categoria;
-      const [lista, nombres] = await Promise.all([obtenerProductos(filtro), obtenerCategorias()]);
+      const [lista, nombres, promos] = await Promise.all([
+        obtenerProductos(filtro),
+        obtenerCategorias(),
+        obtenerBanners(),
+      ]);
       setProductos(lista);
       setCategorias(['Todos', ...nombres]);
+      setBanners(promos);
+      guardarCache('banners', promos);
       if (!filtro) guardarCache('productos', lista); // copia local solo para usar sin internet
     } catch (e) {
       // Sin conexión: usamos la última copia guardada en el teléfono
@@ -45,44 +53,49 @@ export default function Catalogo() {
     }
   }
 
-  // Se vuelve a consultar cada vez que cambia la categoría
-  useEffect(() => {
-    cargar();
-  }, [categoria]);
+  // Se consulta al abrir la pestaña (el stock cambia cuando otros reservan)
+  // y cada vez que cambia la categoría
+  useFocusEffect(useCallback(() => { cargar(); }, [categoria]));
 
   const primerNombre = sesion.usuario.nombre.split(' ')[0];
+
+  // Lo que va arriba de la lista de productos (se desplaza junto con ella)
+  const cabecera = (
+    <View style={{ gap: 14, marginBottom: 2 }}>
+      <Carrusel banners={banners} />
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
+        {categorias.map((c) => (
+          <Pressable
+            key={c}
+            onPress={() => setCategoria(c)}
+            style={[estilos.chip, c === categoria && estilos.chipActivo]}
+          >
+            <Text style={[estilos.chipTexto, c === categoria && { color: colores.botonTexto }]}>{c}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {aviso ? <Text style={estilos.aviso}>{aviso}</Text> : null}
+    </View>
+  );
 
   return (
     <Fondo>
       <Encabezado titulo="Catálogo" subtitulo={`Hola, ${primerNombre}`} />
 
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
-          {categorias.map((c) => (
-            <Pressable
-              key={c}
-              onPress={() => setCategoria(c)}
-              style={[estilos.chip, c === categoria && estilos.chipActivo]}
-            >
-              <Text style={[estilos.chipTexto, c === categoria && { color: colores.botonTexto }]}>{c}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
-      {aviso ? <Text style={estilos.aviso}>{aviso}</Text> : null}
-
-      {cargando && productos.length === 0 ? (
-        <ActivityIndicator color={colores.texto} size="large" style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
+      <FlatList
           data={productos}
           keyExtractor={(p) => String(p.id)}
           numColumns={2}
           columnWrapperStyle={{ gap: 12 }}
           contentContainerStyle={estilos.lista}
-          refreshing={cargando}
+          refreshing={cargando && productos.length > 0}
           onRefresh={cargar}
+          ListHeaderComponent={cabecera}
+          ListEmptyComponent={
+            cargando ? <ActivityIndicator color={colores.texto} size="large" style={{ marginTop: 30 }} /> : null
+          }
           renderItem={({ item }) => (
             <Pressable style={{ flex: 1 }} onPress={() => router.push(`/producto/${item.id}`)}>
               <Tarjeta style={estilos.tarjeta}>
@@ -100,14 +113,13 @@ export default function Catalogo() {
               </Tarjeta>
             </Pressable>
           )}
-        />
-      )}
+      />
     </Fondo>
   );
 }
 
 const estilos = StyleSheet.create({
-  chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 14 },
+  chips: { gap: 8 },
   chip: {
     paddingHorizontal: 15,
     paddingVertical: 8,
@@ -118,7 +130,7 @@ const estilos = StyleSheet.create({
   },
   chipActivo: { backgroundColor: colores.botonFondo, borderColor: 'transparent' },
   chipTexto: { color: colores.textoSuave, fontWeight: '600', fontSize: 13 },
-  aviso: { color: colores.texto, backgroundColor: colores.avisoFondo, marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8, fontSize: 13 },
+  aviso: { color: colores.texto, backgroundColor: colores.avisoFondo, padding: 10, borderRadius: 12, fontSize: 13 },
   lista: { paddingHorizontal: 20, paddingBottom: 120, gap: 12 },
   tarjeta: { padding: 12 },
   imagen: { width: '100%', aspectRatio: 1.05, borderRadius: 13 },

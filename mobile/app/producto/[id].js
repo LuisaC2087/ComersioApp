@@ -9,33 +9,44 @@ import Encabezado from '../../components/Encabezado';
 import Fondo from '../../components/Fondo';
 import ImagenProducto from '../../components/ImagenProducto';
 import Tarjeta from '../../components/Tarjeta';
-import { obtenerProducto } from '../../lib/api';
-import { agregarAlCarrito, leerCache } from '../../lib/db';
+import { agregarAlCarrito, obtenerProducto } from '../../lib/api';
+import { useAuth } from '../../lib/AuthContext';
+import { guardarCache, leerCache } from '../../lib/db';
 import { dinero } from '../../lib/formato';
 import { colores } from '../../lib/tema';
 
 export default function Producto() {
+  const { sesion, cerrarSesion } = useAuth();
   const { id } = useLocalSearchParams();
   const [producto, setProducto] = useState(null);
   const [talla, setTalla] = useState(null); // la talla elegida: { talla, stock }
   const [cantidad, setCantidad] = useState(1);
+  const [agregando, setAgregando] = useState(false);
   const [error, setError] = useState('');
 
   function mostrar(p) {
     setProducto(p);
-    // Elegimos por defecto la primera talla que tenga stock
-    setTalla(p.tallas.find((t) => t.stock > 0) || null);
+    setCantidad(1);
+    // Mantenemos la talla elegida si aún tiene stock; si no, la primera que tenga
+    setTalla((anterior) =>
+      p.tallas.find((t) => t.talla === anterior?.talla && t.stock > 0) ||
+      p.tallas.find((t) => t.stock > 0) ||
+      null
+    );
   }
 
   // Consultamos el producto en la base de datos; si no hay internet, usamos la copia local
-  useEffect(() => {
-    obtenerProducto(id)
+  function cargar() {
+    return obtenerProducto(id)
       .then(mostrar)
       .catch((e) => {
         const guardado = (leerCache('productos') || []).find((p) => String(p.id) === String(id));
         if (guardado) mostrar(guardado);
         else setError(e.message);
       });
+  }
+  useEffect(() => {
+    cargar();
   }, [id]);
 
   if (!producto) {
@@ -58,8 +69,21 @@ export default function Producto() {
     setCantidad(1);
   }
 
-  function anadir() {
-    agregarAlCarrito(producto, talla.talla, cantidad); // se guarda en SQLite
+  async function anadir() {
+    setError('');
+    setAgregando(true);
+    try {
+      // El servidor aparta (descuenta) estas unidades del stock para este usuario
+      const carrito = await agregarAlCarrito(sesion.token, producto.id, talla.talla, cantidad);
+      guardarCache('carrito', carrito);
+    } catch (e) {
+      if (e.status === 401) return cerrarSesion();
+      setError(e.message); // por ejemplo: alguien se llevó las últimas unidades
+      cargar(); // mostramos el stock actualizado
+      return;
+    } finally {
+      setAgregando(false);
+    }
 
     // En el navegador Alert no tiene botones, usamos confirm()
     if (Platform.OS === 'web') {
@@ -132,12 +156,15 @@ export default function Producto() {
           ) : null}
         </Tarjeta>
 
+        {error ? <Text style={estilos.error}>{error}</Text> : null}
         <Boton
           titulo={agotado ? 'Agotado' : `Añadir al carrito · ${dinero(producto.precio * cantidad)}`}
           icono={agotado ? null : 'cart-outline'}
           onPress={anadir}
+          cargando={agregando}
           deshabilitado={agotado || !talla}
         />
+        <Text style={estilos.nota}>Al añadirlo, el producto queda apartado para ti durante un tiempo.</Text>
       </ScrollView>
     </Fondo>
   );
@@ -172,4 +199,6 @@ const estilos = StyleSheet.create({
   textoAgotado: { textDecorationLine: 'line-through' },
   stock: { color: colores.exito, fontSize: 13, fontWeight: '600', marginTop: 10 },
   cantidad: { color: colores.texto, fontSize: 18, fontWeight: '700', minWidth: 36, textAlign: 'center' },
+  nota: { color: colores.textoSuave, fontSize: 12, textAlign: 'center' },
+  error: { color: colores.error, backgroundColor: colores.errorFondo, padding: 12, borderRadius: 12, fontSize: 13 },
 });

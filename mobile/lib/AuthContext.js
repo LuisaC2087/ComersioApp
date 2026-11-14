@@ -4,7 +4,7 @@
 //  así al abrir la app de nuevo el usuario sigue conectado.
 // ============================================================
 import { createContext, useContext, useState } from 'react';
-import { borrarCache, borrarSesion, guardarSesion, leerSesion, vaciarCarrito } from './db';
+import { borrarCache, borrarSesion, guardarSesion, leerSesion } from './db';
 
 const AuthContext = createContext(null);
 
@@ -18,8 +18,9 @@ export function AuthProvider({ children }) {
   }
 
   function cerrarSesion() {
+    // El carrito queda guardado en el servidor: si vuelves a entrar antes de
+    // que venza la reserva, lo encuentras igual (incluso desde otro teléfono).
     borrarSesion();
-    vaciarCarrito();
     borrarCache();
     setSesion(null);
   }

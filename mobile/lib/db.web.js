@@ -29,41 +29,6 @@ export function borrarSesion() {
   localStorage.removeItem('sesion');
 }
 
-// ---------- Carrito ----------
-export function agregarAlCarrito(producto, talla, cantidad) {
-  const carrito = leerCarrito();
-  const existente = carrito.find((i) => i.producto_id === producto.id && i.talla === talla);
-  if (existente) {
-    existente.cantidad += cantidad;
-  } else {
-    carrito.push({
-      producto_id: producto.id,
-      talla,
-      nombre: producto.nombre,
-      precio: producto.precio,
-      emoji: producto.emoji ?? null,
-      imagen: producto.imagen ?? null,
-      cantidad,
-    });
-  }
-  escribir('carrito', carrito);
-}
-
-export function leerCarrito() {
-  return leer('carrito', []).sort((a, b) => a.nombre.localeCompare(b.nombre));
-}
-
-export function cambiarCantidad(productoId, talla, cantidad) {
-  const carrito = leerCarrito()
-    .map((i) => (i.producto_id === productoId && i.talla === talla ? { ...i, cantidad } : i))
-    .filter((i) => i.cantidad > 0);
-  escribir('carrito', carrito);
-}
-
-export function vaciarCarrito() {
-  localStorage.removeItem('carrito');
-}
-
 // ---------- Caché ----------
 export function guardarCache(clave, valor) {
   escribir('cache-' + clave, valor);

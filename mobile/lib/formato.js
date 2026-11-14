@@ -8,6 +8,12 @@ export function dinero(valor) {
   })}`;
 }
 
+// "2026-11-07T15:30:00Z" -> "09:30"
+export function hora(texto) {
+  const d = new Date(texto);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // "2026-11-07T15:30:00Z" -> "07/11/2026 09:30"
 export function fecha(texto) {
   const d = new Date(texto);

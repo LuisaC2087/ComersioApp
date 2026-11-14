@@ -3,7 +3,6 @@
 // - La imagen se elige de la galería (se guarda en base64 dentro de la base de
 //   datos) o se pega una URL https de una foto.
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,6 +14,7 @@ import ImagenProducto from '../../components/ImagenProducto';
 import Tarjeta from '../../components/Tarjeta';
 import { actualizarProducto, crearProducto, obtenerProducto } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
+import { elegirImagen } from '../../lib/elegirImagen';
 import { colores } from '../../lib/tema';
 
 // Tallas con las que empieza un producto nuevo (se pueden cambiar en el formulario)
@@ -59,19 +59,10 @@ export default function FormularioProducto() {
   const agregarTalla = () => setTallas([...tallas, { talla: '', stock: '0' }]);
   const quitarTalla = (indice) => setTallas(tallas.filter((_, i) => i !== indice));
 
-  // Abre la galería y guarda la foto como base64 (reducida para que pese poco)
-  async function elegirImagen() {
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.4,
-      base64: true,
-    });
-    if (resultado.canceled) return;
-
-    const foto = resultado.assets[0];
-    setImagen(foto.base64 ? `data:image/jpeg;base64,${foto.base64}` : foto.uri);
+  // Abre la galería; la foto llega en base64 (cuadrada)
+  async function cambiarFoto() {
+    const foto = await elegirImagen([1, 1]);
+    if (foto) setImagen(foto);
   }
 
   async function guardar() {
@@ -106,7 +97,7 @@ export default function FormularioProducto() {
         <Tarjeta style={{ alignItems: 'center', gap: 12 }}>
           <ImagenProducto producto={{ imagen }} estilo={{ width: 140, height: 140 }} icono={48} />
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Boton titulo="Elegir foto" variante="vidrio" icono="image-outline" onPress={elegirImagen} />
+            <Boton titulo="Elegir foto" variante="vidrio" icono="image-outline" onPress={cambiarFoto} />
             {imagen ? (
               <Boton titulo="Quitar" variante="peligro" icono="close" onPress={() => setImagen(null)} />
             ) : null}

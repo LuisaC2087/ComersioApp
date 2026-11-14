@@ -12,6 +12,12 @@
 //  - PUT    /productos/:id        -> modificar producto (tallas, stock e imagen)
 //  - DELETE /productos/:id        -> eliminar producto
 //
+//  Carrusel de inicio (modelos y promociones):
+//  - GET    /banners              -> banners activos (público; ?todos=1 incluye ocultos)
+//  - POST   /banners              -> crear banner (admin)
+//  - PUT    /banners/:id          -> modificar banner (admin)
+//  - DELETE /banners/:id          -> eliminar banner (admin)
+//
 //  TABLAS
 //   productos       -> datos generales (nombre, precio, categoría, imagen...)
 //   producto_tallas -> una fila por talla con SU stock:
@@ -61,6 +67,19 @@ async function prepararBaseDeDatos() {
       talla       TEXT NOT NULL,
       stock       INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
       UNIQUE (producto_id, talla)
+    )
+  `);
+
+  // Carrusel de la pantalla de inicio (modelos, promociones...)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS banners (
+      id          SERIAL PRIMARY KEY,
+      titulo      TEXT NOT NULL,
+      subtitulo   TEXT,
+      imagen      TEXT NOT NULL,      -- URL https o foto en base64
+      producto_id INT REFERENCES productos(id) ON DELETE SET NULL, -- opcional: al tocarlo abre ese producto
+      orden       INT NOT NULL DEFAULT 0,
+      activo      BOOLEAN NOT NULL DEFAULT TRUE
     )
   `);
 
@@ -264,6 +283,65 @@ app.delete('/productos/:id', soloAdmin, async (req, res) => {
   // Las tallas se borran solas (ON DELETE CASCADE)
   const { rowCount } = await db.query('DELETE FROM productos WHERE id = $1', [id]);
   if (rowCount === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+  res.json({ eliminado: true });
+});
+
+// ---------- Carrusel de inicio (banners) ----------
+// Público: solo los activos. Con ?todos=1 también los ocultos (para el admin).
+app.get('/banners', async (req, res) => {
+  const filtro = req.query.todos ? '' : 'WHERE activo';
+  const { rows } = await db.query(`SELECT * FROM banners ${filtro} ORDER BY orden, id`);
+  res.json(rows);
+});
+
+app.get('/banners/:id', async (req, res) => {
+  const { rows } = await db.query('SELECT * FROM banners WHERE id = $1', [Number(req.params.id)]);
+  if (rows.length === 0) return res.status(404).json({ error: 'Banner no encontrado' });
+  res.json(rows[0]);
+});
+
+function validarBanner(cuerpo) {
+  const { titulo, subtitulo, imagen, productoId, orden, activo } = cuerpo;
+  if (!titulo || !String(titulo).trim()) return { error: 'El título es obligatorio' };
+  if (!imagen) return { error: 'El banner necesita una imagen' };
+  return {
+    datos: [
+      String(titulo).trim(),
+      String(subtitulo || '').trim(),
+      imagen,
+      productoId ? Number(productoId) : null,
+      Number(orden) || 0,
+      activo !== false,
+    ],
+  };
+}
+
+app.post('/banners', soloAdmin, async (req, res) => {
+  const { error, datos } = validarBanner(req.body);
+  if (error) return res.status(400).json({ error });
+  const { rows } = await db.query(
+    `INSERT INTO banners (titulo, subtitulo, imagen, producto_id, orden, activo)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    datos
+  );
+  res.status(201).json(rows[0]);
+});
+
+app.put('/banners/:id', soloAdmin, async (req, res) => {
+  const { error, datos } = validarBanner(req.body);
+  if (error) return res.status(400).json({ error });
+  const { rows } = await db.query(
+    `UPDATE banners SET titulo=$1, subtitulo=$2, imagen=$3, producto_id=$4, orden=$5, activo=$6
+     WHERE id=$7 RETURNING *`,
+    [...datos, Number(req.params.id)]
+  );
+  if (rows.length === 0) return res.status(404).json({ error: 'Banner no encontrado' });
+  res.json(rows[0]);
+});
+
+app.delete('/banners/:id', soloAdmin, async (req, res) => {
+  const { rowCount } = await db.query('DELETE FROM banners WHERE id = $1', [Number(req.params.id)]);
+  if (rowCount === 0) return res.status(404).json({ error: 'Banner no encontrado' });
   res.json({ eliminado: true });
 });
 
