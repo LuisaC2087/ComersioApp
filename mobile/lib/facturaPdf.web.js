@@ -115,3 +115,7 @@ export async function descargarFacturaPdf(pedido) {
   pdf.save(`Factura-${pedido.numero_factura}.pdf`);
   return null;
 }
+
+// En el navegador, "imprimir" también descarga el PDF: es lo que funciona
+// igual en computadora y en el navegador del celular.
+export const imprimirFactura = descargarFacturaPdf;

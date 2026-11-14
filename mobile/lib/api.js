@@ -54,3 +54,18 @@ export const crearPedido = (token, items, pago) =>
 export const obtenerHistorial = (token) => pedir(`${API.pedidos}/pedidos`, { token });
 
 export const obtenerPedido = (token, id) => pedir(`${API.pedidos}/pedidos/${id}`, { token });
+
+// ---------- Funciones solo del administrador ----------
+export const crearProducto = (token, datos) =>
+  pedir(`${API.productos}/productos`, { metodo: 'POST', cuerpo: datos, token });
+
+export const actualizarProducto = (token, id, datos) =>
+  pedir(`${API.productos}/productos/${id}`, { metodo: 'PUT', cuerpo: datos, token });
+
+export const eliminarProducto = (token, id) =>
+  pedir(`${API.productos}/productos/${id}`, { metodo: 'DELETE', token });
+
+export const obtenerPedidosAdmin = (token) => pedir(`${API.pedidos}/admin/pedidos`, { token });
+
+export const cambiarEstadoPedido = (token, id, estado) =>
+  pedir(`${API.pedidos}/admin/pedidos/${id}`, { metodo: 'PUT', cuerpo: { estado }, token });

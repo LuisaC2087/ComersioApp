@@ -1,26 +1,34 @@
 // ============================================================
-//  TEMA GLASSMORPHISM
-//  Cambia estos colores y toda la app cambia de estilo.
+//  TEMA GLASSMORPHISM MINIMALISTA
+//  Cambia estos valores y toda la app cambia de estilo.
 //
-//  La idea del glassmorphism:
-//   1. Un fondo colorido (degradado + círculos de color).
-//   2. Tarjetas semitransparentes con desenfoque (blur).
-//   3. Un borde fino y claro que simula el filo del vidrio.
+//  La receta:
+//   1. Fondo oscuro con dos luces de color muy suaves.
+//   2. Tarjetas de vidrio: casi transparentes, borde fino y claro, blur.
+//   3. Un solo color de acento y mucho espacio en blanco.
 // ============================================================
 export const colores = {
-  degradado: ['#3a1c71', '#7b3fa0', '#d76d77', '#ffaf7b'],
-  circulo1: '#00d2ff',
-  circulo2: '#ff4ecd',
+  // Fondo: degradado oscuro y dos "luces" de color detrás del vidrio
+  degradado: ['#0d0f1d', '#161a33', '#221a3d'],
+  circulo1: '#5b5ff1',
+  circulo2: '#c13fd4',
 
-  vidrio: 'rgba(255, 255, 255, 0.14)',
-  vidrioFuerte: 'rgba(255, 255, 255, 0.26)',
-  borde: 'rgba(255, 255, 255, 0.35)',
+  // Vidrio
+  vidrio: 'rgba(255, 255, 255, 0.07)',
+  vidrioFuerte: 'rgba(255, 255, 255, 0.13)',
+  borde: 'rgba(255, 255, 255, 0.15)',
 
-  texto: '#ffffff',
-  textoSuave: 'rgba(255, 255, 255, 0.72)',
-  acento: '#ffd166',
-  exito: '#06d6a0',
-  error: '#ff6b6b',
+  // Texto y acento
+  texto: '#f3f4fa',
+  textoSuave: 'rgba(243, 244, 250, 0.55)',
+  acento: '#a5b4fc',
+
+  // El botón principal es claro, con texto oscuro
+  botonFondo: '#eef0ff',
+  botonTexto: '#171a33',
+
+  exito: '#4ade80',
+  error: '#f87171',
 };
 
-export const radio = 22;
+export const radio = 20;

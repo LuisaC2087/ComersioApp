@@ -1,8 +1,11 @@
 // ============================================================
 //  MICROSERVICIO DE USUARIOS
-//  - POST /registro  -> crea una cuenta y devuelve un token
+//  - POST /registro  -> crea una cuenta (rol "cliente") y devuelve un token
 //  - POST /login     -> valida email/contraseña y devuelve un token
 //  - GET  /perfil    -> datos del usuario dueño del token
+//
+//  Roles: "cliente" (compra) y "admin" (administra la tienda).
+//  El rol viaja dentro del token; los otros servicios lo leen de ahí.
 // ============================================================
 const express = require('express');
 const cors = require('cors');
@@ -17,6 +20,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Documentación interactiva de la API en /docs
+const swaggerUi = require('swagger-ui-express');
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(require('./swagger')));
+
 // ---------- Base de datos ----------
 async function prepararBaseDeDatos() {
   await db.query(`
@@ -25,29 +32,39 @@ async function prepararBaseDeDatos() {
       nombre    TEXT NOT NULL,
       email     TEXT UNIQUE NOT NULL,
       password  TEXT NOT NULL,
+      rol       TEXT NOT NULL DEFAULT 'cliente',
       creado_en TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  // Si la tabla ya existía sin la columna "rol", se agrega sin borrar nada
+  await db.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol TEXT NOT NULL DEFAULT 'cliente'`);
 
-  // Usuario de prueba para la demo: demo@tienda.com / 123456
-  const hash = await bcrypt.hash('123456', 10);
+  // Usuarios de prueba para la demo
+  const demo = await bcrypt.hash('123456', 10);
   await db.query(
-    `INSERT INTO usuarios (nombre, email, password) VALUES ($1, $2, $3)
-     ON CONFLICT (email) DO NOTHING`,
-    ['Usuario Demo', 'demo@tienda.com', hash]
+    `INSERT INTO usuarios (nombre, email, password) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING`,
+    ['Usuario Demo', 'demo@tienda.com', demo]
+  );
+  const admin = await bcrypt.hash('admin123', 10);
+  await db.query(
+    `INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, 'admin')
+     ON CONFLICT (email) DO UPDATE SET rol = 'admin'`,
+    ['Administración', 'admin@tienda.com', admin]
   );
 }
 
 // ---------- Utilidades ----------
-// El token guarda id, nombre y email. Los otros microservicios lo leen
+// El token guarda id, nombre, email y rol. Los otros microservicios lo leen
 // con el mismo JWT_SECRET para saber quién hace la petición.
 function crearToken(usuario) {
   return jwt.sign(
-    { id: usuario.id, nombre: usuario.nombre, email: usuario.email },
+    { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
+
+const publico = (u) => ({ id: u.id, nombre: u.nombre, email: u.email, rol: u.rol });
 
 function autenticar(req, res, next) {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
@@ -82,11 +99,11 @@ app.post('/registro', async (req, res) => {
 
   const hash = await bcrypt.hash(password, 10);
   const { rows } = await db.query(
-    'INSERT INTO usuarios (nombre, email, password) VALUES ($1, $2, $3) RETURNING id, nombre, email',
+    `INSERT INTO usuarios (nombre, email, password) VALUES ($1, $2, $3) RETURNING id, nombre, email, rol`,
     [nombre.trim(), correo, hash]
   );
 
-  const usuario = rows[0];
+  const usuario = publico(rows[0]);
   res.status(201).json({ token: crearToken(usuario), usuario });
 });
 
@@ -106,13 +123,12 @@ app.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Email o contraseña incorrectos' });
   }
 
-  const datos = { id: usuario.id, nombre: usuario.nombre, email: usuario.email };
-  res.json({ token: crearToken(datos), usuario: datos });
+  res.json({ token: crearToken(usuario), usuario: publico(usuario) });
 });
 
 app.get('/perfil', autenticar, async (req, res) => {
   const { rows } = await db.query(
-    'SELECT id, nombre, email, creado_en FROM usuarios WHERE id = $1',
+    'SELECT id, nombre, email, rol, creado_en FROM usuarios WHERE id = $1',
     [req.usuario.id]
   );
   if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });

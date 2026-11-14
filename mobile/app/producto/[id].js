@@ -44,21 +44,23 @@ export default function Producto() {
           subtitulo={error}
           onVolver={() => router.back()}
         />
-        {!error ? <ActivityIndicator color="#fff" size="large" /> : null}
+        {!error ? <ActivityIndicator color={colores.texto} size="large" /> : null}
       </Fondo>
     );
   }
+
+  const agotado = producto.stock === 0;
 
   function anadir() {
     agregarAlCarrito(producto, talla, cantidad); // se guarda en SQLite
 
     // En el navegador Alert no tiene botones, usamos confirm()
     if (Platform.OS === 'web') {
-      const irAlCarrito = window.confirm(`¡Añadido! ${cantidad} × ${producto.nombre}\n¿Ir al carrito?`);
+      const irAlCarrito = window.confirm(`Añadido: ${cantidad} × ${producto.nombre}\n¿Ir al carrito?`);
       return irAlCarrito ? router.navigate('/carrito') : router.back();
     }
 
-    Alert.alert('¡Añadido! 🛒', `${cantidad} × ${producto.nombre} (talla ${talla})`, [
+    Alert.alert('Añadido al carrito', `${cantidad} × ${producto.nombre} (talla ${talla})`, [
       { text: 'Seguir comprando', onPress: () => router.back() },
       { text: 'Ver carrito', onPress: () => router.navigate('/carrito') },
     ]);
@@ -68,19 +70,22 @@ export default function Producto() {
     <Fondo>
       <Encabezado titulo={producto.nombre} subtitulo={producto.categoria} onVolver={() => router.back()} />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
-        <Tarjeta style={estilos.imagen}>
-          <ImagenProducto producto={producto} tamano={110} />
-        </Tarjeta>
+        <ImagenProducto producto={producto} estilo={estilos.imagen} icono={64} />
 
         <Tarjeta>
-          <Text style={estilos.precio}>{dinero(producto.precio)}</Text>
+          <View style={estilos.filaPrecio}>
+            <Text style={estilos.precio}>{dinero(producto.precio)}</Text>
+            <Text style={[estilos.stock, agotado && { color: colores.error }]}>
+              {agotado ? 'Agotado' : `${producto.stock} disponibles`}
+            </Text>
+          </View>
           <Text style={estilos.descripcion}>{producto.descripcion}</Text>
 
           <Text style={estilos.subtitulo}>Talla</Text>
           <View style={estilos.fila}>
             {producto.tallas.map((t) => (
               <Pressable key={t} onPress={() => setTalla(t)} style={[estilos.opcion, t === talla && estilos.opcionActiva]}>
-                <Text style={[estilos.opcionTexto, t === talla && { color: '#3a1c71' }]}>{t}</Text>
+                <Text style={[estilos.opcionTexto, t === talla && { color: colores.botonTexto }]}>{t}</Text>
               </Pressable>
             ))}
           </View>
@@ -91,26 +96,43 @@ export default function Producto() {
               <Text style={estilos.opcionTexto}>−</Text>
             </Pressable>
             <Text style={estilos.cantidad}>{cantidad}</Text>
-            <Pressable onPress={() => setCantidad(cantidad + 1)} style={estilos.opcion}>
+            <Pressable
+              onPress={() => setCantidad(Math.min(producto.stock, cantidad + 1))}
+              style={estilos.opcion}
+            >
               <Text style={estilos.opcionTexto}>+</Text>
             </Pressable>
           </View>
         </Tarjeta>
 
-        <Boton titulo={`Añadir al carrito · ${dinero(producto.precio * cantidad)}`} onPress={anadir} />
+        <Boton
+          titulo={agotado ? 'Agotado' : `Añadir al carrito · ${dinero(producto.precio * cantidad)}`}
+          icono={agotado ? null : 'cart-outline'}
+          onPress={anadir}
+          deshabilitado={agotado}
+        />
       </ScrollView>
     </Fondo>
   );
 }
 
 const estilos = StyleSheet.create({
-  imagen: { alignItems: 'center', paddingVertical: 36 },
-  precio: { color: colores.acento, fontSize: 28, fontWeight: '800' },
-  descripcion: { color: colores.texto, fontSize: 15, marginTop: 8, lineHeight: 22 },
-  subtitulo: { color: colores.textoSuave, marginTop: 18, marginBottom: 8, fontWeight: '600' },
+  imagen: { width: '100%', aspectRatio: 1.3, borderRadius: 20 },
+  filaPrecio: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  precio: { color: colores.texto, fontSize: 26, fontWeight: '700' },
+  stock: { color: colores.exito, fontSize: 13, fontWeight: '600' },
+  descripcion: { color: colores.textoSuave, fontSize: 14, marginTop: 8, lineHeight: 21 },
+  subtitulo: {
+    color: colores.textoSuave,
+    marginTop: 18,
+    marginBottom: 8,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
   fila: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   opcion: {
-    minWidth: 46,
+    minWidth: 44,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
@@ -119,7 +141,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  opcionActiva: { backgroundColor: colores.acento },
-  opcionTexto: { color: colores.texto, fontWeight: '700', fontSize: 16 },
-  cantidad: { color: colores.texto, fontSize: 20, fontWeight: '800', minWidth: 40, textAlign: 'center' },
+  opcionActiva: { backgroundColor: colores.botonFondo, borderColor: 'transparent' },
+  opcionTexto: { color: colores.texto, fontWeight: '600', fontSize: 15 },
+  cantidad: { color: colores.texto, fontSize: 18, fontWeight: '700', minWidth: 36, textAlign: 'center' },
 });

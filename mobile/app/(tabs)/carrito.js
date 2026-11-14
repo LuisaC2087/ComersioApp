@@ -1,4 +1,5 @@
 // Pestaña CARRITO (ruta "/carrito"). El carrito vive en SQLite.
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -36,15 +37,15 @@ export default function Carrito() {
         keyExtractor={(i) => `${i.producto_id}-${i.talla}`}
         contentContainerStyle={estilos.lista}
         ListEmptyComponent={
-          <Tarjeta style={{ alignItems: 'center', paddingVertical: 40 }}>
-            <Text style={{ fontSize: 50 }}>🛒</Text>
+          <Tarjeta style={{ alignItems: 'center', paddingVertical: 42 }}>
+            <Ionicons name="cart-outline" size={42} color={colores.textoSuave} />
             <Text style={estilos.vacio}>Tu carrito está vacío</Text>
-            <Boton titulo="Ir al catálogo" variante="vidrio" onPress={() => router.navigate('/')} style={{ marginTop: 16 }} />
+            <Boton titulo="Ir al catálogo" variante="vidrio" onPress={() => router.navigate('/')} style={{ marginTop: 18 }} />
           </Tarjeta>
         }
         renderItem={({ item }) => (
           <Tarjeta style={estilos.item}>
-            <ImagenProducto producto={item} tamano={36} />
+            <ImagenProducto producto={item} estilo={{ width: 56, height: 56 }} icono={24} />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={estilos.nombre}>{item.nombre}</Text>
               <Text style={estilos.detalle}>Talla {item.talla} · {dinero(item.precio)}</Text>
@@ -52,11 +53,11 @@ export default function Carrito() {
             </View>
             <View style={estilos.contador}>
               <Pressable onPress={() => cambiar(item, item.cantidad - 1)} style={estilos.mini} hitSlop={6}>
-                <Text style={estilos.miniTexto}>{item.cantidad === 1 ? '🗑' : '−'}</Text>
+                <Ionicons name={item.cantidad === 1 ? 'trash-outline' : 'remove'} size={15} color={colores.texto} />
               </Pressable>
               <Text style={estilos.cantidad}>{item.cantidad}</Text>
               <Pressable onPress={() => cambiar(item, item.cantidad + 1)} style={estilos.mini} hitSlop={6}>
-                <Text style={estilos.miniTexto}>+</Text>
+                <Ionicons name="add" size={15} color={colores.texto} />
               </Pressable>
             </View>
           </Tarjeta>
@@ -67,7 +68,7 @@ export default function Carrito() {
               <Fila texto="Subtotal" valor={dinero(subtotal)} />
               <Fila texto={`IVA (${IVA * 100}%)`} valor={dinero(impuesto)} />
               <Fila texto="Total" valor={dinero(subtotal + impuesto)} grande />
-              <Boton titulo="Ir a pagar" onPress={() => router.push('/pago')} style={{ marginTop: 14 }} />
+              <Boton titulo="Ir a pagar" icono="card-outline" onPress={() => router.push('/pago')} style={{ marginTop: 14 }} />
             </Tarjeta>
           ) : null
         }
@@ -79,33 +80,33 @@ export default function Carrito() {
 function Fila({ texto, valor, grande }) {
   return (
     <View style={estilos.fila}>
-      <Text style={[estilos.filaTexto, grande && estilos.grande]}>{texto}</Text>
-      <Text style={[estilos.filaTexto, grande && estilos.grande]}>{valor}</Text>
+      <Text style={[grande ? estilos.grande : estilos.filaTexto]}>{texto}</Text>
+      <Text style={[grande ? estilos.grande : estilos.filaValor]}>{valor}</Text>
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
   lista: { paddingHorizontal: 20, paddingBottom: 120, gap: 12 },
-  vacio: { color: colores.texto, fontSize: 17, marginTop: 8 },
-  item: { flexDirection: 'row', alignItems: 'center' },
-  nombre: { color: colores.texto, fontWeight: '700', fontSize: 15 },
-  detalle: { color: colores.textoSuave, fontSize: 13 },
-  importe: { color: colores.acento, fontWeight: '800', marginTop: 4 },
+  vacio: { color: colores.textoSuave, fontSize: 15, marginTop: 10 },
+  item: { flexDirection: 'row', alignItems: 'center', padding: 14 },
+  nombre: { color: colores.texto, fontWeight: '600', fontSize: 14 },
+  detalle: { color: colores.textoSuave, fontSize: 12, marginTop: 2 },
+  importe: { color: colores.acento, fontWeight: '700', marginTop: 4, fontSize: 13 },
   contador: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   mini: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: colores.vidrioFuerte,
     borderWidth: 1,
     borderColor: colores.borde,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  miniTexto: { color: colores.texto, fontSize: 16, fontWeight: '700' },
-  cantidad: { color: colores.texto, fontWeight: '800', minWidth: 20, textAlign: 'center' },
+  cantidad: { color: colores.texto, fontWeight: '700', minWidth: 20, textAlign: 'center' },
   fila: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  filaTexto: { color: colores.texto, fontSize: 15 },
-  grande: { fontSize: 20, fontWeight: '800', color: colores.acento },
+  filaTexto: { color: colores.textoSuave, fontSize: 14 },
+  filaValor: { color: colores.texto, fontSize: 14 },
+  grande: { fontSize: 18, fontWeight: '700', color: colores.texto, marginTop: 4 },
 });

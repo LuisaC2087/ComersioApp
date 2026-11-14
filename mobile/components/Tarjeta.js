@@ -8,7 +8,7 @@ export default function Tarjeta({ children, style }) {
   return (
     <View style={[estilos.tarjeta, style]}>
       {/* Capa de desenfoque detrás del contenido */}
-      <BlurView intensity={35} tint="light" style={StyleSheet.absoluteFill} />
+      <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
       {children}
     </View>
   );
@@ -21,6 +21,6 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radio,
     overflow: 'hidden',
-    padding: 16,
+    padding: 18,
   },
 });

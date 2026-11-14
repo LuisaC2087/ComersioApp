@@ -8,9 +8,9 @@
 //    app/producto/[id].js    -> /producto/5
 //    app/pago.js             -> /pago
 //    app/factura/[id].js     -> /factura/12
+//    app/admin/...           -> panel del administrador (solo rol "admin")
 //
-//  Stack.Protected decide qué pantallas existen según haya sesión o no.
-//  Si no hay sesión, Expo Router manda al usuario a /login automáticamente.
+//  Stack.Protected decide qué pantallas existen según la sesión.
 // ============================================================
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -26,6 +26,7 @@ const tema = { ...DarkTheme, colors: { ...DarkTheme.colors, background: colores.
 
 function Navegacion() {
   const { sesion } = useAuth();
+  const esAdmin = sesion?.usuario?.rol === 'admin';
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -35,6 +36,13 @@ function Navegacion() {
         <Stack.Screen name="producto/[id]" />
         <Stack.Screen name="pago" />
         <Stack.Screen name="factura/[id]" />
+      </Stack.Protected>
+
+      {/* Solo administradores */}
+      <Stack.Protected guard={esAdmin}>
+        <Stack.Screen name="admin/index" />
+        <Stack.Screen name="admin/productos" />
+        <Stack.Screen name="admin/producto" />
       </Stack.Protected>
 
       {/* Solo sin sesión */}

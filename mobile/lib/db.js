@@ -59,7 +59,7 @@ export function agregarAlCarrito(producto, talla, cantidad) {
     `INSERT INTO carrito (producto_id, talla, nombre, precio, emoji, imagen, cantidad)
      VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (producto_id, talla) DO UPDATE SET cantidad = cantidad + excluded.cantidad`,
-    [producto.id, talla, producto.nombre, producto.precio, producto.emoji, producto.imagen, cantidad]
+    [producto.id, talla, producto.nombre, producto.precio, producto.emoji ?? null, producto.imagen ?? null, cantidad]
   );
 }
 

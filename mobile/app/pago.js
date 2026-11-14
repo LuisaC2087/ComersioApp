@@ -1,4 +1,5 @@
 // PAGO SIMULADO (ruta "/pago")
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -35,7 +36,7 @@ export default function Pago() {
     setError('');
     setProcesando(true);
     try {
-      // Solo enviamos id, talla y cantidad: el servidor busca los precios reales
+      // Solo enviamos id, talla y cantidad: el servidor usa los precios reales
       const items = carrito.map((i) => ({ productoId: i.producto_id, talla: i.talla, cantidad: i.cantidad }));
       const pedido = await crearPedido(sesion.token, items, {
         titular,
@@ -62,7 +63,7 @@ export default function Pago() {
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} keyboardShouldPersistTaps="handled">
         {/* Tarjeta de crédito de vidrio (solo visual) */}
         <Tarjeta style={estilos.tarjetaCredito}>
-          <Text style={estilos.chip}>💳</Text>
+          <Ionicons name="card-outline" size={30} color={colores.texto} />
           <Text style={estilos.numero}>{numero || '•••• •••• •••• ••••'}</Text>
           <View style={estilos.filaTarjeta}>
             <Text style={estilos.textoTarjeta}>{titular.toUpperCase() || 'TITULAR'}</Text>
@@ -107,6 +108,7 @@ export default function Pago() {
 
         <Boton
           titulo={`Pagar ${dinero(subtotal * (1 + IVA))}`}
+          icono="lock-closed-outline"
           onPress={pagar}
           cargando={procesando}
           deshabilitado={carrito.length === 0}
@@ -117,11 +119,15 @@ export default function Pago() {
 }
 
 const estilos = StyleSheet.create({
-  tarjetaCredito: { height: 190, justifyContent: 'space-between', padding: 22, backgroundColor: 'rgba(255,255,255,0.2)' },
-  chip: { fontSize: 32 },
-  numero: { color: colores.texto, fontSize: 22, letterSpacing: 2, fontWeight: '700' },
+  tarjetaCredito: {
+    height: 185,
+    justifyContent: 'space-between',
+    padding: 22,
+    backgroundColor: colores.vidrioFuerte,
+  },
+  numero: { color: colores.texto, fontSize: 21, letterSpacing: 2.5, fontWeight: '600' },
   filaTarjeta: { flexDirection: 'row', justifyContent: 'space-between' },
-  textoTarjeta: { color: colores.textoSuave, fontWeight: '600' },
-  nota: { color: colores.textoSuave, fontSize: 12 },
-  error: { color: colores.error, backgroundColor: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 12, textAlign: 'center' },
+  textoTarjeta: { color: colores.textoSuave, fontWeight: '600', fontSize: 12, letterSpacing: 1 },
+  nota: { color: colores.textoSuave, fontSize: 12, lineHeight: 18 },
+  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 12, borderRadius: 12, textAlign: 'center', fontSize: 13 },
 });

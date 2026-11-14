@@ -41,8 +41,8 @@ export function agregarAlCarrito(producto, talla, cantidad) {
       talla,
       nombre: producto.nombre,
       precio: producto.precio,
-      emoji: producto.emoji,
-      imagen: producto.imagen,
+      emoji: producto.emoji ?? null,
+      imagen: producto.imagen ?? null,
       cantidad,
     });
   }

@@ -1,5 +1,5 @@
-// Fondo de todas las pantallas: degradado + dos círculos de color.
-// Los círculos son los que se ven "borrosos" detrás de las tarjetas de vidrio.
+// Fondo de todas las pantallas: degradado oscuro + dos luces de color.
+// Las luces son lo que se ve "difuminado" detrás de las tarjetas de vidrio.
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,8 +13,8 @@ export default function Fondo({ children }) {
       end={{ x: 1, y: 1 }}
       style={estilos.fondo}
     >
-      <View style={[estilos.circulo, { backgroundColor: colores.circulo1, top: -70, left: -70 }]} />
-      <View style={[estilos.circulo, { backgroundColor: colores.circulo2, bottom: 120, right: -90 }]} />
+      <View style={[estilos.luz, { backgroundColor: colores.circulo1, top: -120, left: -100 }]} />
+      <View style={[estilos.luz, { backgroundColor: colores.circulo2, bottom: 60, right: -140 }]} />
       <SafeAreaView style={estilos.fondo} edges={['top']}>
         {children}
       </SafeAreaView>
@@ -24,11 +24,11 @@ export default function Fondo({ children }) {
 
 const estilos = StyleSheet.create({
   fondo: { flex: 1 },
-  circulo: {
+  luz: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    opacity: 0.5,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    opacity: 0.22,
   },
 });

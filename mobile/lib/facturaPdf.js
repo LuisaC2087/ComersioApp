@@ -86,19 +86,32 @@ function htmlFactura(pedido) {
 }
 
 export async function descargarFacturaPdf(pedido) {
-  // 1. Convertimos el HTML en un archivo PDF dentro del teléfono
-  const { uri } = await Print.printToFileAsync({ html: htmlFactura(pedido) });
+  const html = htmlFactura(pedido);
 
-  // 2. Abrimos el menú del teléfono para guardarlo (Archivos/Drive) o compartirlo
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, {
-      mimeType: 'application/pdf',
-      UTI: 'com.adobe.pdf',
-      dialogTitle: `Factura ${pedido.numero_factura}`,
-    });
-  } else {
-    // Si no se puede compartir, abrimos el diálogo de impresión (permite "Guardar como PDF")
+  try {
+    // 1. Convertimos el HTML en un archivo PDF dentro del teléfono
+    const { uri } = await Print.printToFileAsync({ html });
+
+    // 2. Abrimos el menú del teléfono para guardarlo (Archivos/Drive) o compartirlo
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+        dialogTitle: `Factura ${pedido.numero_factura}`,
+      });
+      return uri;
+    }
     await Print.printAsync({ uri });
+    return uri;
+  } catch (e) {
+    // Si generar el archivo falla en este teléfono, usamos el diálogo de
+    // impresión del sistema, que también permite "Guardar como PDF".
+    await Print.printAsync({ html });
+    return null;
   }
-  return uri;
+}
+
+// Abre directamente el diálogo de impresión del teléfono
+export async function imprimirFactura(pedido) {
+  await Print.printAsync({ html: htmlFactura(pedido) });
 }

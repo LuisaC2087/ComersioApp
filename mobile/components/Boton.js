@@ -1,12 +1,16 @@
 // Botón reutilizable.
-//  variante="solido" -> botón principal (color de acento)
-//  variante="vidrio" -> botón secundario transparente
+//  variante="solido"  -> botón principal (claro, texto oscuro)
+//  variante="vidrio"  -> botón secundario transparente
+//  variante="peligro" -> acciones destructivas (borrar)
+//  icono="print-outline" -> agrega un ícono de Ionicons a la izquierda
+import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { colores } from '../lib/tema';
 
-export default function Boton({ titulo, onPress, cargando, deshabilitado, variante = 'solido', style }) {
+export default function Boton({ titulo, onPress, cargando, deshabilitado, variante = 'solido', icono, style }) {
   const solido = variante === 'solido';
   const inactivo = cargando || deshabilitado;
+  const colorTexto = solido ? colores.botonTexto : variante === 'peligro' ? colores.error : colores.texto;
 
   return (
     <Pressable
@@ -15,14 +19,17 @@ export default function Boton({ titulo, onPress, cargando, deshabilitado, varian
       style={({ pressed }) => [
         estilos.boton,
         solido ? estilos.solido : estilos.vidrio,
-        (pressed || inactivo) && { opacity: 0.6 },
+        (pressed || inactivo) && { opacity: 0.55 },
         style,
       ]}
     >
       {cargando ? (
-        <ActivityIndicator color={solido ? '#3a1c71' : colores.texto} />
+        <ActivityIndicator color={colorTexto} />
       ) : (
-        <Text style={[estilos.texto, solido && { color: '#3a1c71' }]}>{titulo}</Text>
+        <>
+          {icono ? <Ionicons name={icono} size={18} color={colorTexto} /> : null}
+          <Text style={[estilos.texto, { color: colorTexto }]}>{titulo}</Text>
+        </>
       )}
     </Pressable>
   );
@@ -30,13 +37,16 @@ export default function Boton({ titulo, onPress, cargando, deshabilitado, varian
 
 const estilos = StyleSheet.create({
   boton: {
+    flexDirection: 'row',
+    gap: 8,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
   },
-  solido: { backgroundColor: colores.acento, borderColor: 'rgba(255,255,255,0.6)' },
+  solido: { backgroundColor: colores.botonFondo, borderColor: 'transparent' },
   vidrio: { backgroundColor: colores.vidrioFuerte, borderColor: colores.borde },
-  texto: { color: colores.texto, fontWeight: '700', fontSize: 16 },
+  texto: { fontWeight: '600', fontSize: 15, letterSpacing: 0.2 },
 });

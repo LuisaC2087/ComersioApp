@@ -1,8 +1,10 @@
 // Pestaña MIS COMPRAS (ruta "/historial")
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import Encabezado from '../../components/Encabezado';
+import EstadoPedido from '../../components/EstadoPedido';
 import Fondo from '../../components/Fondo';
 import Tarjeta from '../../components/Tarjeta';
 import { obtenerHistorial } from '../../lib/api';
@@ -53,8 +55,8 @@ export default function Historial() {
         onRefresh={cargar}
         ListEmptyComponent={
           !cargando ? (
-            <Tarjeta style={{ alignItems: 'center', paddingVertical: 40 }}>
-              <Text style={{ fontSize: 50 }}>🧾</Text>
+            <Tarjeta style={{ alignItems: 'center', paddingVertical: 42 }}>
+              <Ionicons name="receipt-outline" size={42} color={colores.textoSuave} />
               <Text style={estilos.texto}>Aún no tienes compras</Text>
             </Tarjeta>
           ) : null
@@ -63,12 +65,15 @@ export default function Historial() {
           <Pressable onPress={() => router.push(`/factura/${item.id}`)}>
             <Tarjeta style={estilos.item}>
               <View style={{ flex: 1 }}>
-                <Text style={estilos.factura}>{item.numero_factura}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={estilos.factura}>{item.numero_factura}</Text>
+                  <EstadoPedido estado={item.estado} />
+                </View>
                 <Text style={estilos.suave}>{fecha(item.fecha)}</Text>
                 <Text style={estilos.suave}>{item.articulos} artículo(s) · {item.metodo_pago}</Text>
               </View>
               <Text style={estilos.total}>{dinero(item.total)}</Text>
-              <Text style={estilos.flecha}>›</Text>
+              <Ionicons name="chevron-forward" size={18} color={colores.textoSuave} />
             </Tarjeta>
           </Pressable>
         )}
@@ -79,11 +84,10 @@ export default function Historial() {
 
 const estilos = StyleSheet.create({
   lista: { paddingHorizontal: 20, paddingBottom: 120, gap: 12 },
-  aviso: { color: colores.texto, backgroundColor: 'rgba(0,0,0,0.25)', marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8 },
-  item: { flexDirection: 'row', alignItems: 'center' },
-  factura: { color: colores.texto, fontWeight: '800', fontSize: 16 },
-  texto: { color: colores.texto, fontSize: 16, marginTop: 8 },
-  suave: { color: colores.textoSuave, fontSize: 13, marginTop: 2 },
-  total: { color: colores.acento, fontWeight: '800', fontSize: 17 },
-  flecha: { color: colores.textoSuave, fontSize: 28, marginLeft: 8 },
+  aviso: { color: colores.texto, backgroundColor: 'rgba(0,0,0,0.3)', marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8, fontSize: 13 },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  factura: { color: colores.texto, fontWeight: '700', fontSize: 15 },
+  texto: { color: colores.textoSuave, fontSize: 15, marginTop: 10 },
+  suave: { color: colores.textoSuave, fontSize: 12, marginTop: 3 },
+  total: { color: colores.acento, fontWeight: '700', fontSize: 15 },
 });

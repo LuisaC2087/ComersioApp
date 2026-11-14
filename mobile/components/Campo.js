@@ -1,5 +1,5 @@
 // Campo de texto con estilo de vidrio.
-// Acepta las mismas props que un TextInput (value, onChangeText, etc.)
+// Acepta las mismas props que un TextInput (value, onChangeText, multiline...)
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { colores } from '../lib/tema';
 
@@ -8,9 +8,9 @@ export default function Campo({ etiqueta, style, ...props }) {
     <View style={[estilos.contenedor, style]}>
       {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
       <TextInput
-        placeholderTextColor="rgba(255,255,255,0.5)"
+        placeholderTextColor="rgba(243,244,250,0.35)"
         autoCapitalize="none"
-        style={estilos.input}
+        style={[estilos.input, props.multiline && { minHeight: 90, textAlignVertical: 'top' }]}
         {...props}
       />
     </View>
@@ -19,15 +19,21 @@ export default function Campo({ etiqueta, style, ...props }) {
 
 const estilos = StyleSheet.create({
   contenedor: { marginBottom: 14 },
-  etiqueta: { color: colores.textoSuave, marginBottom: 6, fontSize: 13 },
+  etiqueta: {
+    color: colores.textoSuave,
+    marginBottom: 6,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderColor: colores.borde,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 13,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: colores.texto,
-    fontSize: 16,
+    fontSize: 15,
   },
 });

@@ -58,6 +58,8 @@ services:
         fromDatabase:
           name: tienda-db
           property: connectionString
+      # El mismo secreto de los demás: valida el token del administrador
+      - fromGroup: tienda-secretos
 
   # ---------- Pedidos: pago simulado, facturas, historial ----------
   - type: web
@@ -74,8 +76,6 @@ services:
           name: tienda-db
           property: connectionString
       - fromGroup: tienda-secretos
-      - key: PRODUCTOS_URL         # URL pública del servicio de productos
-        value: https://tienda-productos-dxd5.onrender.com
       - key: IVA
         value: "0.12"
 

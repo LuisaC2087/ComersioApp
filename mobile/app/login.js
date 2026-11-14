@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import Boton from '../components/Boton';
 import Campo from '../components/Campo';
 import Fondo from '../components/Fondo';
@@ -22,7 +23,7 @@ export default function Login() {
     setCargando(true);
     try {
       const { token, usuario } = await login(email, password);
-      iniciarSesion(token, usuario); // Expo Router cambia solo al catálogo
+      iniciarSesion(token, usuario); // la app cambia sola al catálogo
     } catch (e) {
       setError(e.message);
     } finally {
@@ -36,7 +37,9 @@ export default function Login() {
         style={estilos.centro}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={estilos.logo}>🛍️</Text>
+        <View style={estilos.logo}>
+          <Ionicons name="bag-handle-outline" size={34} color={colores.texto} />
+        </View>
         <Text style={estilos.titulo}>{TIENDA.nombre}</Text>
         <Text style={estilos.subtitulo}>Tu tienda de ropa en línea</Text>
 
@@ -56,7 +59,9 @@ export default function Login() {
           </Link>
         </Tarjeta>
 
-        <Text style={estilos.nota}>Prueba con: demo@tienda.com / 123456</Text>
+        <Text style={estilos.nota}>
+          Cliente: demo@tienda.com / 123456{'\n'}Administrador: admin@tienda.com / admin123
+        </Text>
       </KeyboardAvoidingView>
     </Fondo>
   );
@@ -64,11 +69,22 @@ export default function Login() {
 
 const estilos = StyleSheet.create({
   centro: { flex: 1, justifyContent: 'center', padding: 24 },
-  logo: { fontSize: 64, textAlign: 'center' },
-  titulo: { color: colores.texto, fontSize: 34, fontWeight: '800', textAlign: 'center' },
-  subtitulo: { color: colores.textoSuave, textAlign: 'center', marginBottom: 24 },
+  logo: {
+    alignSelf: 'center',
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: colores.vidrioFuerte,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  titulo: { color: colores.texto, fontSize: 30, fontWeight: '700', textAlign: 'center', letterSpacing: 0.3 },
+  subtitulo: { color: colores.textoSuave, textAlign: 'center', marginBottom: 26, marginTop: 4 },
   tarjeta: { padding: 22 },
-  error: { color: colores.error, backgroundColor: 'rgba(0,0,0,0.25)', padding: 8, borderRadius: 10, marginBottom: 12 },
-  nota: { color: colores.textoSuave, textAlign: 'center', fontSize: 12, marginVertical: 10 },
-  enlace: { color: colores.texto, textAlign: 'center', textDecorationLine: 'underline', marginTop: 16 },
+  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 10, borderRadius: 12, marginBottom: 12, fontSize: 13 },
+  nota: { color: colores.textoSuave, textAlign: 'center', fontSize: 12, marginVertical: 12, lineHeight: 18 },
+  enlace: { color: colores.acento, textAlign: 'center', marginTop: 16, fontSize: 14 },
 });

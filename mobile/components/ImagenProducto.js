@@ -1,14 +1,27 @@
-// Muestra la foto del producto si tiene "imagen"; si no, su emoji.
-import { Image, Text } from 'react-native';
+// Muestra la foto real del producto (campo "imagen": URL o foto en base64).
+// Si el producto no tiene foto, muestra un ícono sobre un fondo suave.
+// Uso:  <ImagenProducto producto={p} estilo={{ width: 64, height: 64 }} />
+import { Ionicons } from '@expo/vector-icons';
+import { Image, StyleSheet, View } from 'react-native';
+import { colores } from '../lib/tema';
 
-export default function ImagenProducto({ producto, tamano = 60 }) {
+export default function ImagenProducto({ producto, estilo, icono = 36 }) {
   if (producto.imagen) {
-    return (
-      <Image
-        source={{ uri: producto.imagen }}
-        style={{ width: tamano * 1.6, height: tamano * 1.6, borderRadius: 16 }}
-      />
-    );
+    return <Image source={{ uri: producto.imagen }} style={[estilos.base, estilo]} resizeMode="cover" />;
   }
-  return <Text style={{ fontSize: tamano }}>{producto.emoji || '👚'}</Text>;
+  return (
+    <View style={[estilos.base, estilos.vacio, estilo]}>
+      <Ionicons name="shirt-outline" size={icono} color={colores.textoSuave} />
+    </View>
+  );
 }
+
+const estilos = StyleSheet.create({
+  base: { borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)' },
+  vacio: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+});

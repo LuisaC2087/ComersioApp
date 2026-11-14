@@ -50,12 +50,11 @@ export default function Catalogo() {
     cargar();
   }, [categoria]);
 
-  const visibles = productos;
   const primerNombre = sesion.usuario.nombre.split(' ')[0];
 
   return (
     <Fondo>
-      <Encabezado titulo="Catálogo" subtitulo={`Hola, ${primerNombre} 👋`} />
+      <Encabezado titulo="Catálogo" subtitulo={`Hola, ${primerNombre}`} />
 
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
@@ -65,7 +64,7 @@ export default function Catalogo() {
               onPress={() => setCategoria(c)}
               style={[estilos.chip, c === categoria && estilos.chipActivo]}
             >
-              <Text style={[estilos.chipTexto, c === categoria && { color: '#3a1c71' }]}>{c}</Text>
+              <Text style={[estilos.chipTexto, c === categoria && { color: colores.botonTexto }]}>{c}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -74,10 +73,10 @@ export default function Catalogo() {
       {aviso ? <Text style={estilos.aviso}>{aviso}</Text> : null}
 
       {cargando && productos.length === 0 ? (
-        <ActivityIndicator color="#fff" size="large" style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colores.texto} size="large" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={visibles}
+          data={productos}
           keyExtractor={(p) => String(p.id)}
           numColumns={2}
           columnWrapperStyle={{ gap: 12 }}
@@ -87,7 +86,14 @@ export default function Catalogo() {
           renderItem={({ item }) => (
             <Pressable style={{ flex: 1 }} onPress={() => router.push(`/producto/${item.id}`)}>
               <Tarjeta style={estilos.tarjeta}>
-                <ImagenProducto producto={item} tamano={52} />
+                <View>
+                  <ImagenProducto producto={item} estilo={estilos.imagen} icono={34} />
+                  {item.stock === 0 ? (
+                    <View style={estilos.agotado}>
+                      <Text style={estilos.agotadoTexto}>Agotado</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={estilos.nombre} numberOfLines={1}>{item.nombre}</Text>
                 <Text style={estilos.categoria}>{item.categoria}</Text>
                 <Text style={estilos.precio}>{dinero(item.precio)}</Text>
@@ -101,21 +107,32 @@ export default function Catalogo() {
 }
 
 const estilos = StyleSheet.create({
-  chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 12 },
+  chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 14 },
   chip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 18,
     backgroundColor: colores.vidrio,
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  chipActivo: { backgroundColor: colores.acento },
-  chipTexto: { color: colores.texto, fontWeight: '600' },
-  aviso: { color: colores.texto, backgroundColor: 'rgba(0,0,0,0.25)', marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8 },
+  chipActivo: { backgroundColor: colores.botonFondo, borderColor: 'transparent' },
+  chipTexto: { color: colores.textoSuave, fontWeight: '600', fontSize: 13 },
+  aviso: { color: colores.texto, backgroundColor: 'rgba(0,0,0,0.3)', marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8, fontSize: 13 },
   lista: { paddingHorizontal: 20, paddingBottom: 120, gap: 12 },
-  tarjeta: { alignItems: 'center', paddingVertical: 20 },
-  nombre: { color: colores.texto, fontWeight: '700', fontSize: 15, marginTop: 10 },
-  categoria: { color: colores.textoSuave, fontSize: 12 },
-  precio: { color: colores.acento, fontWeight: '800', fontSize: 17, marginTop: 6 },
+  tarjeta: { padding: 12 },
+  imagen: { width: '100%', aspectRatio: 1.05, borderRadius: 13 },
+  agotado: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(13,15,29,0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  agotadoTexto: { color: colores.error, fontSize: 11, fontWeight: '700' },
+  nombre: { color: colores.texto, fontWeight: '600', fontSize: 14, marginTop: 10 },
+  categoria: { color: colores.textoSuave, fontSize: 12, marginTop: 1 },
+  precio: { color: colores.acento, fontWeight: '700', fontSize: 15, marginTop: 6 },
 });

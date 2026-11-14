@@ -1,4 +1,5 @@
 // Pestaña PERFIL (ruta "/perfil")
+import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import Boton from '../../components/Boton';
 import Encabezado from '../../components/Encabezado';
@@ -9,19 +10,28 @@ import { colores } from '../../lib/tema';
 
 export default function Perfil() {
   const { sesion, cerrarSesion } = useAuth();
-  const { nombre, email } = sesion.usuario;
+  const { nombre, email, rol } = sesion.usuario;
 
   return (
     <Fondo>
       <Encabezado titulo="Perfil" />
-      <View style={{ padding: 20, gap: 16 }}>
+      <View style={{ padding: 20, gap: 14 }}>
         <Tarjeta style={{ alignItems: 'center', paddingVertical: 30 }}>
           <View style={estilos.avatar}>
             <Text style={estilos.inicial}>{nombre.charAt(0).toUpperCase()}</Text>
           </View>
           <Text style={estilos.nombre}>{nombre}</Text>
           <Text style={estilos.email}>{email}</Text>
+          {rol === 'admin' ? <Text style={estilos.rol}>Administrador</Text> : null}
         </Tarjeta>
+
+        {rol === 'admin' ? (
+          <Boton
+            titulo="Panel de administración"
+            icono="settings-outline"
+            onPress={() => router.push('/admin')}
+          />
+        ) : null}
 
         <Tarjeta>
           <Text style={estilos.email}>
@@ -30,7 +40,7 @@ export default function Perfil() {
           </Text>
         </Tarjeta>
 
-        <Boton titulo="Cerrar sesión" variante="vidrio" onPress={cerrarSesion} />
+        <Boton titulo="Cerrar sesión" variante="vidrio" icono="log-out-outline" onPress={cerrarSesion} />
       </View>
     </Fondo>
   );
@@ -38,17 +48,18 @@ export default function Perfil() {
 
 const estilos = StyleSheet.create({
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: colores.vidrioFuerte,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colores.borde,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
-  inicial: { color: colores.texto, fontSize: 40, fontWeight: '800' },
-  nombre: { color: colores.texto, fontSize: 22, fontWeight: '800' },
-  email: { color: colores.textoSuave, fontSize: 14, textAlign: 'center' },
+  inicial: { color: colores.texto, fontSize: 34, fontWeight: '700' },
+  nombre: { color: colores.texto, fontSize: 20, fontWeight: '700' },
+  email: { color: colores.textoSuave, fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  rol: { color: colores.acento, fontSize: 12, fontWeight: '700', marginTop: 6, letterSpacing: 0.8, textTransform: 'uppercase' },
 });

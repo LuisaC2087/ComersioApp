@@ -1,16 +1,18 @@
 // FACTURA (ruta "/factura/12", o "/factura/12?nuevo=1" justo después de pagar)
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Boton from '../../components/Boton';
 import Encabezado from '../../components/Encabezado';
+import EstadoPedido from '../../components/EstadoPedido';
 import Fondo from '../../components/Fondo';
 import Tarjeta from '../../components/Tarjeta';
 import { obtenerPedido } from '../../lib/api';
 import { useAuth } from '../../lib/AuthContext';
 import { TIENDA } from '../../lib/config';
 import { guardarCache, leerCache } from '../../lib/db';
-import { descargarFacturaPdf } from '../../lib/facturaPdf';
+import { descargarFacturaPdf, imprimirFactura } from '../../lib/facturaPdf';
 import { dinero, fecha } from '../../lib/formato';
 import { colores } from '../../lib/tema';
 
@@ -34,10 +36,11 @@ export default function Factura() {
       });
   }, [id]);
 
-  async function descargar() {
+  async function ejecutar(accion) {
+    setError('');
     setGenerando(true);
     try {
-      await descargarFacturaPdf(pedido);
+      await accion(pedido);
     } catch (e) {
       setError('No se pudo generar el PDF: ' + e.message);
     } finally {
@@ -50,19 +53,22 @@ export default function Factura() {
       <Encabezado titulo="Factura" subtitulo={pedido?.numero_factura} onVolver={() => router.back()} />
 
       {!pedido ? (
-        error ? <Text style={estilos.error}>{error}</Text> : <ActivityIndicator color="#fff" size="large" />
+        error ? <Text style={estilos.error}>{error}</Text> : <ActivityIndicator color={colores.texto} size="large" />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 40 }}>
           {nuevo ? (
-            <Tarjeta style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 44 }}>✅</Text>
-              <Text style={estilos.exito}>¡Pago aprobado!</Text>
+            <Tarjeta style={{ alignItems: 'center', paddingVertical: 26 }}>
+              <Ionicons name="checkmark-circle-outline" size={44} color={colores.exito} />
+              <Text style={estilos.exito}>Pago aprobado</Text>
               <Text style={estilos.suave}>Referencia {pedido.referencia_pago}</Text>
             </Tarjeta>
           ) : null}
 
           <Tarjeta>
-            <Text style={estilos.tienda}>{TIENDA.nombre}</Text>
+            <View style={estilos.cabecera}>
+              <Text style={estilos.tienda}>{TIENDA.nombre}</Text>
+              <EstadoPedido estado={pedido.estado} />
+            </View>
             <Text style={estilos.suave}>NIT {TIENDA.nit} · {TIENDA.direccion}</Text>
 
             <View style={estilos.separador} />
@@ -90,7 +96,18 @@ export default function Factura() {
             <Fila texto="Total" valor={dinero(pedido.total)} grande />
           </Tarjeta>
 
-          <Boton titulo="📄 Descargar PDF" onPress={descargar} cargando={generando} />
+          <Boton
+            titulo="Descargar PDF"
+            icono="download-outline"
+            onPress={() => ejecutar(descargarFacturaPdf)}
+            cargando={generando}
+          />
+          <Boton
+            titulo="Imprimir"
+            icono="print-outline"
+            variante="vidrio"
+            onPress={() => ejecutar(imprimirFactura)}
+          />
           {error ? <Text style={estilos.error}>{error}</Text> : null}
           {nuevo ? (
             <Boton titulo="Seguir comprando" variante="vidrio" onPress={() => router.navigate('/')} />
@@ -104,20 +121,21 @@ export default function Factura() {
 function Fila({ texto, valor, grande }) {
   return (
     <View style={estilos.fila}>
-      <Text style={[estilos.suave, grande && estilos.grande]}>{texto}</Text>
-      <Text style={[estilos.texto, grande && estilos.grande]}>{valor}</Text>
+      <Text style={[grande ? estilos.grande : estilos.suave]}>{texto}</Text>
+      <Text style={[grande ? estilos.grande : estilos.texto]}>{valor}</Text>
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
-  tienda: { color: colores.texto, fontSize: 22, fontWeight: '800' },
-  texto: { color: colores.texto, fontSize: 15 },
-  suave: { color: colores.textoSuave, fontSize: 13 },
-  exito: { color: colores.exito, fontSize: 22, fontWeight: '800', marginTop: 4 },
-  separador: { height: 1, backgroundColor: colores.borde, marginVertical: 12 },
-  fila: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tienda: { color: colores.texto, fontSize: 20, fontWeight: '700' },
+  texto: { color: colores.texto, fontSize: 14 },
+  suave: { color: colores.textoSuave, fontSize: 12, marginTop: 2 },
+  exito: { color: colores.exito, fontSize: 19, fontWeight: '700', marginTop: 8 },
+  separador: { height: 1, backgroundColor: colores.borde, marginVertical: 14 },
+  fila: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, alignItems: 'center' },
   item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  grande: { fontSize: 20, fontWeight: '800', color: colores.acento },
-  error: { color: colores.error, textAlign: 'center', margin: 20 },
+  grande: { fontSize: 18, fontWeight: '700', color: colores.texto, marginTop: 4 },
+  error: { color: colores.error, textAlign: 'center', margin: 10, fontSize: 13 },
 });

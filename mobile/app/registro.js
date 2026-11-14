@@ -55,5 +55,5 @@ export default function Registro() {
 }
 
 const estilos = StyleSheet.create({
-  error: { color: colores.error, backgroundColor: 'rgba(0,0,0,0.25)', padding: 8, borderRadius: 10, marginBottom: 12 },
+  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 10, borderRadius: 12, marginBottom: 12, fontSize: 13 },
 });
