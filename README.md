@@ -1,14 +1,16 @@
 # 🛍️ Glass Store: tienda de ropa en línea
 
-Una app para celular hecha con **Expo (React Native)**, con estilo **glassmorphism minimalista**,
+Una app para celular hecha con **Expo (React Native)**, con estilo **glassmorphism claro y minimalista**,
 conectada a **3 microservicios en Node.js** desplegados en **Render**, con una base de datos
 **PostgreSQL en Render** y una base de datos **SQLite local en el teléfono**.
+
+> 📖 **Explicación detallada de cómo funciona todo:** [docs/EXPLICACION.md](docs/EXPLICACION.md)
 
 ## Funciones
 
 **Como cliente**
 - Registro e inicio de sesión (contraseñas encriptadas y token JWT)
-- Catálogo con fotos reales, filtro por categoría y control de **stock** ("Agotado")
+- Catálogo con fotos reales, filtro por categoría y **stock por talla** (tallas agotadas tachadas)
 - Carrito guardado en el teléfono (SQLite)
 - Pago **simulado** que descuenta stock, factura en pantalla, **PDF descargable** e impresión
 - Historial de compras con el estado del pedido (pagado → enviado → entregado)
@@ -16,7 +18,7 @@ conectada a **3 microservicios en Node.js** desplegados en **Render**, con una b
 
 **Como administrador** (sección dentro de la misma app)
 - Resumen de la tienda: ventas, pedidos y productos agotados
-- Crear, editar y eliminar productos; cambiar precio, **stock** e **imagen**
+- Crear, editar y eliminar productos; cambiar precio, **tallas con su stock** e **imagen**
 - Subir la foto del producto desde la galería o pegar una URL
 - Cambiar el estado de cada pedido
 
@@ -57,7 +59,8 @@ son rechazadas, para probar errores.
                           ┌───────▼────────┐
                           │ PostgreSQL     │  (Render)
                           │ usuarios       │
-                          │ productos      │  <- stock e imagen viven aquí
+                          │ productos      │  <- imagen vive aquí
+                          │ producto_tallas│  <- stock por talla
                           │ pedidos        │
                           │ pedido_items   │
                           └────────────────┘
@@ -65,8 +68,8 @@ son rechazadas, para probar errores.
 
 - **usuarios**: cuentas y login. El token JWT lleva el **rol** (`cliente` o `admin`).
 - **productos**: catálogo con stock e imagen. Las rutas de escritura piden rol `admin`.
-- **pedidos**: la compra ocurre en **una transacción**: descuenta el stock
-  (`UPDATE ... WHERE stock >= cantidad`), toma los **precios reales** de la tabla
+- **pedidos**: la compra ocurre en **una transacción**: descuenta el stock de cada
+  **talla** (`UPDATE producto_tallas ... WHERE stock >= cantidad`), toma los **precios reales** de la tabla
   de productos, simula el pago y guarda la factura. Si algo falla, nada se guarda
   y el stock vuelve a quedar como estaba.
 - Los 3 servicios comparten el `JWT_SECRET` (validan el token sin llamarse entre sí)

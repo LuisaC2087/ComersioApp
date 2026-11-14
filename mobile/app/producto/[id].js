@@ -1,5 +1,6 @@
 // DETALLE DE PRODUCTO (ruta "/producto/5")
 // El producto se consulta en la base de datos (GET /productos/:id).
+// Cada talla tiene su propio stock: producto.tallas = [{ talla: 'S', stock: 5 }, ...]
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -16,13 +17,14 @@ import { colores } from '../../lib/tema';
 export default function Producto() {
   const { id } = useLocalSearchParams();
   const [producto, setProducto] = useState(null);
-  const [talla, setTalla] = useState(null);
+  const [talla, setTalla] = useState(null); // la talla elegida: { talla, stock }
   const [cantidad, setCantidad] = useState(1);
   const [error, setError] = useState('');
 
   function mostrar(p) {
     setProducto(p);
-    setTalla(p.tallas[0]);
+    // Elegimos por defecto la primera talla que tenga stock
+    setTalla(p.tallas.find((t) => t.stock > 0) || null);
   }
 
   // Consultamos el producto en la base de datos; si no hay internet, usamos la copia local
@@ -51,8 +53,13 @@ export default function Producto() {
 
   const agotado = producto.stock === 0;
 
+  function elegirTalla(t) {
+    setTalla(t);
+    setCantidad(1);
+  }
+
   function anadir() {
-    agregarAlCarrito(producto, talla, cantidad); // se guarda en SQLite
+    agregarAlCarrito(producto, talla.talla, cantidad); // se guarda en SQLite
 
     // En el navegador Alert no tiene botones, usamos confirm()
     if (Platform.OS === 'web') {
@@ -60,7 +67,7 @@ export default function Producto() {
       return irAlCarrito ? router.navigate('/carrito') : router.back();
     }
 
-    Alert.alert('Añadido al carrito', `${cantidad} × ${producto.nombre} (talla ${talla})`, [
+    Alert.alert('Añadido al carrito', `${cantidad} × ${producto.nombre} (talla ${talla.talla})`, [
       { text: 'Seguir comprando', onPress: () => router.back() },
       { text: 'Ver carrito', onPress: () => router.navigate('/carrito') },
     ]);
@@ -73,43 +80,63 @@ export default function Producto() {
         <ImagenProducto producto={producto} estilo={estilos.imagen} icono={64} />
 
         <Tarjeta>
-          <View style={estilos.filaPrecio}>
-            <Text style={estilos.precio}>{dinero(producto.precio)}</Text>
-            <Text style={[estilos.stock, agotado && { color: colores.error }]}>
-              {agotado ? 'Agotado' : `${producto.stock} disponibles`}
-            </Text>
-          </View>
+          <Text style={estilos.precio}>{dinero(producto.precio)}</Text>
           <Text style={estilos.descripcion}>{producto.descripcion}</Text>
 
           <Text style={estilos.subtitulo}>Talla</Text>
           <View style={estilos.fila}>
-            {producto.tallas.map((t) => (
-              <Pressable key={t} onPress={() => setTalla(t)} style={[estilos.opcion, t === talla && estilos.opcionActiva]}>
-                <Text style={[estilos.opcionTexto, t === talla && { color: colores.botonTexto }]}>{t}</Text>
-              </Pressable>
-            ))}
+            {producto.tallas.map((t) => {
+              const sinStock = t.stock === 0;
+              const elegida = talla?.talla === t.talla;
+              return (
+                <Pressable
+                  key={t.talla}
+                  disabled={sinStock}
+                  onPress={() => elegirTalla(t)}
+                  style={[estilos.opcion, elegida && estilos.opcionActiva, sinStock && estilos.opcionAgotada]}
+                >
+                  <Text
+                    style={[
+                      estilos.opcionTexto,
+                      elegida && { color: colores.botonTexto },
+                      sinStock && estilos.textoAgotado,
+                    ]}
+                  >
+                    {t.talla}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
+          <Text style={[estilos.stock, (agotado || !talla) && { color: colores.error }]}>
+            {agotado
+              ? 'Agotado en todas las tallas'
+              : talla
+                ? `${talla.stock} disponibles en talla ${talla.talla}`
+                : 'Elige una talla'}
+          </Text>
 
-          <Text style={estilos.subtitulo}>Cantidad</Text>
-          <View style={estilos.fila}>
-            <Pressable onPress={() => setCantidad(Math.max(1, cantidad - 1))} style={estilos.opcion}>
-              <Text style={estilos.opcionTexto}>−</Text>
-            </Pressable>
-            <Text style={estilos.cantidad}>{cantidad}</Text>
-            <Pressable
-              onPress={() => setCantidad(Math.min(producto.stock, cantidad + 1))}
-              style={estilos.opcion}
-            >
-              <Text style={estilos.opcionTexto}>+</Text>
-            </Pressable>
-          </View>
+          {talla ? (
+            <>
+              <Text style={estilos.subtitulo}>Cantidad</Text>
+              <View style={estilos.fila}>
+                <Pressable onPress={() => setCantidad(Math.max(1, cantidad - 1))} style={estilos.opcion}>
+                  <Text style={estilos.opcionTexto}>−</Text>
+                </Pressable>
+                <Text style={estilos.cantidad}>{cantidad}</Text>
+                <Pressable onPress={() => setCantidad(Math.min(talla.stock, cantidad + 1))} style={estilos.opcion}>
+                  <Text style={estilos.opcionTexto}>+</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
         </Tarjeta>
 
         <Boton
           titulo={agotado ? 'Agotado' : `Añadir al carrito · ${dinero(producto.precio * cantidad)}`}
           icono={agotado ? null : 'cart-outline'}
           onPress={anadir}
-          deshabilitado={agotado}
+          deshabilitado={agotado || !talla}
         />
       </ScrollView>
     </Fondo>
@@ -118,9 +145,7 @@ export default function Producto() {
 
 const estilos = StyleSheet.create({
   imagen: { width: '100%', aspectRatio: 1.3, borderRadius: 20 },
-  filaPrecio: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   precio: { color: colores.texto, fontSize: 26, fontWeight: '700' },
-  stock: { color: colores.exito, fontSize: 13, fontWeight: '600' },
   descripcion: { color: colores.textoSuave, fontSize: 14, marginTop: 8, lineHeight: 21 },
   subtitulo: {
     color: colores.textoSuave,
@@ -132,7 +157,7 @@ const estilos = StyleSheet.create({
   },
   fila: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   opcion: {
-    minWidth: 44,
+    minWidth: 46,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
@@ -142,6 +167,9 @@ const estilos = StyleSheet.create({
     borderColor: colores.borde,
   },
   opcionActiva: { backgroundColor: colores.botonFondo, borderColor: 'transparent' },
+  opcionAgotada: { opacity: 0.4 },
   opcionTexto: { color: colores.texto, fontWeight: '600', fontSize: 15 },
+  textoAgotado: { textDecorationLine: 'line-through' },
+  stock: { color: colores.exito, fontSize: 13, fontWeight: '600', marginTop: 10 },
   cantidad: { color: colores.texto, fontSize: 18, fontWeight: '700', minWidth: 36, textAlign: 'center' },
 });

@@ -84,7 +84,7 @@ export default function Historial() {
 
 const estilos = StyleSheet.create({
   lista: { paddingHorizontal: 20, paddingBottom: 120, gap: 12 },
-  aviso: { color: colores.texto, backgroundColor: 'rgba(0,0,0,0.3)', marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8, fontSize: 13 },
+  aviso: { color: colores.texto, backgroundColor: colores.avisoFondo, marginHorizontal: 20, padding: 10, borderRadius: 12, marginBottom: 8, fontSize: 13 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   factura: { color: colores.texto, fontWeight: '700', fontSize: 15 },
   texto: { color: colores.textoSuave, fontSize: 15, marginTop: 10 },

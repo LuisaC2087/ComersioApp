@@ -48,7 +48,7 @@ module.exports = {
             type: 'array',
             items: {
               type: 'object',
-              required: ['productoId', 'cantidad'],
+              required: ['productoId', 'talla', 'cantidad'],
               properties: {
                 productoId: { type: 'integer', example: 1 },
                 talla: { type: 'string', example: 'M' },
@@ -83,7 +83,7 @@ module.exports = {
         responses: {
           201: { description: 'Compra realizada (factura)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Pedido' } } } },
           402: { description: 'Pago rechazado (simulado)', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
-          409: { description: 'Sin stock suficiente', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+          409: { description: 'Sin stock suficiente en esa talla', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         },
       },
       get: {

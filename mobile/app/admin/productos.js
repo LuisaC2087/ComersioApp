@@ -57,7 +57,11 @@ export default function AdminProductos() {
               <Text style={estilos.nombre} numberOfLines={1}>{item.nombre}</Text>
               <Text style={estilos.suave}>{item.categoria} · {dinero(item.precio)}</Text>
               <Text style={[estilos.stock, item.stock === 0 && { color: colores.error }]}>
-                {item.stock === 0 ? 'Agotado' : `Stock: ${item.stock}`}
+                {item.stock === 0 ? 'Agotado' : `Stock total: ${item.stock}`}
+              </Text>
+              {/* Stock de cada talla: "S 5 · M 0 · L 3" */}
+              <Text style={estilos.suave} numberOfLines={1}>
+                {item.tallas.map((t) => `${t.talla} ${t.stock}`).join(' · ')}
               </Text>
             </View>
             <Pressable style={estilos.accion} onPress={() => router.push(`/admin/producto?id=${item.id}`)} hitSlop={6}>
@@ -89,5 +93,5 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 10, borderRadius: 12, fontSize: 13 },
+  error: { color: colores.error, backgroundColor: colores.errorFondo, padding: 10, borderRadius: 12, fontSize: 13 },
 });

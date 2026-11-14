@@ -13,6 +13,13 @@ module.exports = {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
     },
     schemas: {
+      Talla: {
+        type: 'object',
+        properties: {
+          talla: { type: 'string', example: 'M' },
+          stock: { type: 'integer', example: 5 },
+        },
+      },
       Producto: {
         type: 'object',
         properties: {
@@ -21,21 +28,20 @@ module.exports = {
           descripcion: { type: 'string', example: 'Camisa de algodón de manga larga.' },
           precio: { type: 'number', example: 189.0 },
           categoria: { type: 'string', example: 'Camisas' },
-          tallas: { type: 'array', items: { type: 'string' }, example: ['S', 'M', 'L'] },
-          stock: { type: 'integer', example: 20 },
+          tallas: { type: 'array', items: { $ref: '#/components/schemas/Talla' } },
+          stock: { type: 'integer', example: 8, description: 'Suma del stock de todas las tallas' },
           imagen: { type: 'string', nullable: true, description: 'URL https o foto en base64 (data:image/...)' },
         },
       },
       ProductoNuevo: {
         type: 'object',
-        required: ['nombre', 'precio', 'categoria', 'tallas', 'stock'],
+        required: ['nombre', 'precio', 'categoria', 'tallas'],
         properties: {
           nombre: { type: 'string', example: 'Camisa Oxford' },
           descripcion: { type: 'string', example: 'Camisa de algodón.' },
           precio: { type: 'number', example: 189.0 },
           categoria: { type: 'string', example: 'Camisas' },
-          tallas: { description: 'Lista ["S","M"] o texto "S, M"', example: 'S, M, L' },
-          stock: { type: 'integer', example: 20 },
+          tallas: { type: 'array', items: { $ref: '#/components/schemas/Talla' }, description: 'Cada talla con su propio stock' },
           imagen: { type: 'string', nullable: true },
         },
       },
@@ -77,7 +83,7 @@ module.exports = {
         },
       },
       put: {
-        summary: 'Modificar un producto, su stock o su imagen (solo admin)',
+        summary: 'Modificar un producto, el stock de sus tallas o su imagen (solo admin)',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductoNuevo' } } } },

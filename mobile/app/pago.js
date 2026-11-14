@@ -129,5 +129,5 @@ const estilos = StyleSheet.create({
   filaTarjeta: { flexDirection: 'row', justifyContent: 'space-between' },
   textoTarjeta: { color: colores.textoSuave, fontWeight: '600', fontSize: 12, letterSpacing: 1 },
   nota: { color: colores.textoSuave, fontSize: 12, lineHeight: 18 },
-  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 12, borderRadius: 12, textAlign: 'center', fontSize: 13 },
+  error: { color: colores.error, backgroundColor: colores.errorFondo, padding: 12, borderRadius: 12, textAlign: 'center', fontSize: 13 },
 });

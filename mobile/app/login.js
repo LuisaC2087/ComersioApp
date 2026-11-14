@@ -84,7 +84,7 @@ const estilos = StyleSheet.create({
   titulo: { color: colores.texto, fontSize: 30, fontWeight: '700', textAlign: 'center', letterSpacing: 0.3 },
   subtitulo: { color: colores.textoSuave, textAlign: 'center', marginBottom: 26, marginTop: 4 },
   tarjeta: { padding: 22 },
-  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 10, borderRadius: 12, marginBottom: 12, fontSize: 13 },
+  error: { color: colores.error, backgroundColor: colores.errorFondo, padding: 10, borderRadius: 12, marginBottom: 12, fontSize: 13 },
   nota: { color: colores.textoSuave, textAlign: 'center', fontSize: 12, marginVertical: 12, lineHeight: 18 },
   enlace: { color: colores.acento, textAlign: 'center', marginTop: 16, fontSize: 14 },
 });

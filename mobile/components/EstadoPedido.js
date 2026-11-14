@@ -4,7 +4,7 @@ import { colores } from '../lib/tema';
 
 const COLORES_ESTADO = {
   pagado: colores.acento,
-  enviado: '#fbbf24',
+  enviado: colores.advertencia,
   entregado: colores.exito,
   cancelado: colores.error,
 };

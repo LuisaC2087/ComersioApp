@@ -1,10 +1,12 @@
 // CREAR / EDITAR PRODUCTO (rutas "/admin/producto" y "/admin/producto?id=5")
-// La imagen se elige de la galería (se guarda en base64 dentro de la base de
-// datos) o se pega una URL https de una foto.
+// - Cada talla tiene su propio stock (filas "Talla | Stock").
+// - La imagen se elige de la galería (se guarda en base64 dentro de la base de
+//   datos) o se pega una URL https de una foto.
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Boton from '../../components/Boton';
 import Campo from '../../components/Campo';
 import Encabezado from '../../components/Encabezado';
@@ -15,6 +17,13 @@ import { actualizarProducto, crearProducto, obtenerProducto } from '../../lib/ap
 import { useAuth } from '../../lib/AuthContext';
 import { colores } from '../../lib/tema';
 
+// Tallas con las que empieza un producto nuevo (se pueden cambiar en el formulario)
+const TALLAS_INICIALES = [
+  { talla: 'S', stock: '0' },
+  { talla: 'M', stock: '0' },
+  { talla: 'L', stock: '0' },
+];
+
 export default function FormularioProducto() {
   const { sesion } = useAuth();
   const { id } = useLocalSearchParams(); // sin id = crear, con id = editar
@@ -23,8 +32,7 @@ export default function FormularioProducto() {
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
   const [categoria, setCategoria] = useState('');
-  const [tallas, setTallas] = useState('');
-  const [stock, setStock] = useState('20');
+  const [tallas, setTallas] = useState(TALLAS_INICIALES); // [{ talla, stock }] (como texto mientras se edita)
   const [imagen, setImagen] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -38,12 +46,18 @@ export default function FormularioProducto() {
         setDescripcion(p.descripcion || '');
         setPrecio(String(p.precio));
         setCategoria(p.categoria);
-        setTallas(p.tallas.join(', '));
-        setStock(String(p.stock));
+        setTallas(p.tallas.map((t) => ({ talla: t.talla, stock: String(t.stock) })));
         setImagen(p.imagen);
       })
       .catch((e) => setError(e.message));
   }, [id]);
+
+  // ---- Editor de tallas ----
+  function cambiarTalla(indice, campo, valor) {
+    setTallas(tallas.map((t, i) => (i === indice ? { ...t, [campo]: valor } : t)));
+  }
+  const agregarTalla = () => setTallas([...tallas, { talla: '', stock: '0' }]);
+  const quitarTalla = (indice) => setTallas(tallas.filter((_, i) => i !== indice));
 
   // Abre la galería y guarda la foto como base64 (reducida para que pese poco)
   async function elegirImagen() {
@@ -64,7 +78,14 @@ export default function FormularioProducto() {
     setError('');
     setGuardando(true);
     try {
-      const datos = { nombre, descripcion, precio, categoria, tallas, stock, imagen };
+      const datos = {
+        nombre,
+        descripcion,
+        precio,
+        categoria,
+        imagen,
+        tallas: tallas.map((t) => ({ talla: t.talla, stock: Number(t.stock || 0) })),
+      };
       if (id) await actualizarProducto(sesion.token, id, datos);
       else await crearProducto(sesion.token, datos);
       router.back();
@@ -75,10 +96,12 @@ export default function FormularioProducto() {
     }
   }
 
+  const stockTotal = tallas.reduce((suma, t) => suma + Number(t.stock || 0), 0);
+
   return (
     <Fondo>
       <Encabezado titulo={id ? 'Editar producto' : 'Nuevo producto'} onVolver={() => router.back()} />
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         {/* Imagen del producto */}
         <Tarjeta style={{ alignItems: 'center', gap: 12 }}>
           <ImagenProducto producto={{ imagen }} estilo={{ width: 140, height: 140 }} icono={48} />
@@ -97,15 +120,46 @@ export default function FormularioProducto() {
           />
         </Tarjeta>
 
+        {/* Datos generales */}
         <Tarjeta>
           <Campo etiqueta="Nombre" value={nombre} onChangeText={setNombre} autoCapitalize="sentences" placeholder="Camisa Oxford" />
           <Campo etiqueta="Descripción" value={descripcion} onChangeText={setDescripcion} autoCapitalize="sentences" multiline placeholder="Camisa de algodón..." />
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Campo style={{ flex: 1 }} etiqueta="Precio" value={precio} onChangeText={setPrecio} keyboardType="decimal-pad" placeholder="189.00" />
-            <Campo style={{ flex: 1 }} etiqueta="Stock" value={stock} onChangeText={(t) => setStock(t.replace(/\D/g, ''))} keyboardType="number-pad" placeholder="20" />
+            <Campo style={{ flex: 1, marginBottom: 0 }} etiqueta="Precio" value={precio} onChangeText={setPrecio} keyboardType="decimal-pad" placeholder="189.00" />
+            <Campo style={{ flex: 1, marginBottom: 0 }} etiqueta="Categoría" value={categoria} onChangeText={setCategoria} autoCapitalize="sentences" placeholder="Camisas" />
           </View>
-          <Campo etiqueta="Categoría" value={categoria} onChangeText={setCategoria} autoCapitalize="sentences" placeholder="Camisas" />
-          <Campo etiqueta="Tallas (separadas por coma)" value={tallas} onChangeText={setTallas} placeholder="S, M, L, XL" style={{ marginBottom: 0 }} />
+        </Tarjeta>
+
+        {/* Tallas y stock por talla */}
+        <Tarjeta>
+          <View style={estilos.cabeceraTallas}>
+            <Text style={estilos.titulo}>Tallas y stock</Text>
+            <Text style={estilos.total}>Total: {stockTotal}</Text>
+          </View>
+
+          {tallas.map((t, i) => (
+            <View key={i} style={estilos.filaTalla}>
+              <Campo
+                style={{ flex: 1, marginBottom: 0 }}
+                value={t.talla}
+                onChangeText={(v) => cambiarTalla(i, 'talla', v)}
+                autoCapitalize="characters"
+                placeholder="Talla"
+              />
+              <Campo
+                style={{ flex: 1, marginBottom: 0 }}
+                value={t.stock}
+                onChangeText={(v) => cambiarTalla(i, 'stock', v.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                placeholder="Stock"
+              />
+              <Pressable onPress={() => quitarTalla(i)} style={estilos.quitar} hitSlop={6}>
+                <Ionicons name="trash-outline" size={16} color={colores.error} />
+              </Pressable>
+            </View>
+          ))}
+
+          <Boton titulo="Agregar talla" variante="vidrio" icono="add" onPress={agregarTalla} style={{ marginTop: 4 }} />
         </Tarjeta>
 
         {error ? <Text style={estilos.error}>{error}</Text> : null}
@@ -116,5 +170,17 @@ export default function FormularioProducto() {
 }
 
 const estilos = StyleSheet.create({
-  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 12, borderRadius: 12, fontSize: 13 },
+  cabeceraTallas: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  titulo: { color: colores.textoSuave, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
+  total: { color: colores.acento, fontSize: 13, fontWeight: '700' },
+  filaTalla: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 10 },
+  quitar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colores.errorFondo,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  error: { color: colores.error, backgroundColor: colores.errorFondo, padding: 12, borderRadius: 12, fontSize: 13 },
 });

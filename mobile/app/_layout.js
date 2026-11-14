@@ -12,7 +12,7 @@
 //
 //  Stack.Protected decide qué pantallas existen según la sesión.
 // ============================================================
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../lib/AuthContext';
@@ -21,8 +21,8 @@ import { colores } from '../lib/tema';
 // Si una pantalla falla, Expo Router muestra el error en lugar de una pantalla en blanco
 export { ErrorBoundary } from 'expo-router';
 
-// Fondo oscuro de la navegación (se ve un instante durante las transiciones)
-const tema = { ...DarkTheme, colors: { ...DarkTheme.colors, background: colores.degradado[0] } };
+// Color de fondo de la navegación (se ve un instante durante las transiciones)
+const tema = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colores.degradado[0] } };
 
 function Navegacion() {
   const { sesion } = useAuth();
@@ -58,7 +58,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemeProvider value={tema}>
-        <StatusBar style="light" />
+        <StatusBar style={colores.barraEstado} />
         <Navegacion />
       </ThemeProvider>
     </AuthProvider>

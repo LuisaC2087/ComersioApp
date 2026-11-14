@@ -17,7 +17,7 @@ export default function ImagenProducto({ producto, estilo, icono = 36 }) {
 }
 
 const estilos = StyleSheet.create({
-  base: { borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)' },
+  base: { borderRadius: 14, backgroundColor: colores.vidrio },
   vacio: {
     alignItems: 'center',
     justifyContent: 'center',

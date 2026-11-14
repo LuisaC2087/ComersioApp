@@ -8,7 +8,7 @@ export default function Campo({ etiqueta, style, ...props }) {
     <View style={[estilos.contenedor, style]}>
       {etiqueta ? <Text style={estilos.etiqueta}>{etiqueta}</Text> : null}
       <TextInput
-        placeholderTextColor="rgba(243,244,250,0.35)"
+        placeholderTextColor={colores.placeholder}
         autoCapitalize="none"
         style={[estilos.input, props.multiline && { minHeight: 90, textAlignVertical: 'top' }]}
         {...props}
@@ -27,7 +27,7 @@ const estilos = StyleSheet.create({
     textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colores.campoFondo,
     borderColor: colores.borde,
     borderWidth: 1,
     borderRadius: 13,

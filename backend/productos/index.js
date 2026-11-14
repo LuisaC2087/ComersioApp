@@ -9,8 +9,17 @@
 //
 //  Solo administradores (token con rol "admin"):
 //  - POST   /productos            -> crear producto
-//  - PUT    /productos/:id        -> modificar producto (incluye stock e imagen)
+//  - PUT    /productos/:id        -> modificar producto (tallas, stock e imagen)
 //  - DELETE /productos/:id        -> eliminar producto
+//
+//  TABLAS
+//   productos       -> datos generales (nombre, precio, categoría, imagen...)
+//   producto_tallas -> una fila por talla con SU stock:
+//                      (producto 1, "S", 5), (producto 1, "M", 0), ...
+//
+//  Cada producto se entrega así:
+//   { id, nombre, precio, ..., tallas: [{ talla: "S", stock: 5 }, ...], stock: 5 }
+//   ("stock" es la suma de todas las tallas, útil para mostrar "Agotado").
 //
 //  La imagen se guarda como texto: una URL (https://...) o la foto en
 //  base64 (data:image/...). Así vive en la base de datos y no se pierde.
@@ -42,32 +51,101 @@ async function prepararBaseDeDatos() {
       descripcion TEXT,
       precio      NUMERIC(10, 2) NOT NULL,
       categoria   TEXT NOT NULL,
-      tallas      TEXT NOT NULL,      -- separadas por coma: "S,M,L"
-      stock       INT NOT NULL DEFAULT 20,
-      emoji       TEXT,
       imagen      TEXT
     )
   `);
-  // Si la tabla ya existía sin "stock", se agrega sin borrar nada
-  await db.query(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS stock INT NOT NULL DEFAULT 20`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS producto_tallas (
+      id          SERIAL PRIMARY KEY,               -- también sirve para ordenar las tallas
+      producto_id INT NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+      talla       TEXT NOT NULL,
+      stock       INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
+      UNIQUE (producto_id, talla)
+    )
+  `);
 
-  // Si la tabla está vacía, cargamos el catálogo inicial
+  await migrarVersionAnterior();
+
+  // Si no hay productos, cargamos el catálogo inicial
   const { rows } = await db.query('SELECT COUNT(*)::int AS total FROM productos');
   if (rows[0].total === 0) {
     for (const p of productosIniciales) {
-      await db.query(
-        `INSERT INTO productos (nombre, descripcion, precio, categoria, tallas, stock, imagen)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [p.nombre, p.descripcion, p.precio, p.categoria, p.tallas, p.stock, p.imagen]
-      );
+      await guardarProducto(db, null, p);
     }
     console.log(`Catálogo inicial cargado (${productosIniciales.length} productos)`);
   }
 }
 
-// Convierte "S,M,L" en ["S","M","L"] para que la app lo use fácil
-function formatear(p) {
-  return { ...p, tallas: p.tallas.split(',') };
+// La versión anterior guardaba "tallas" (texto "S,M,L") y un solo "stock" en la
+// tabla productos. Si encontramos esas columnas, pasamos los datos a la tabla
+// producto_tallas (cada talla recibe el stock que tenía el producto) y las borramos.
+async function migrarVersionAnterior() {
+  const { rows } = await db.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = 'productos' AND column_name = 'tallas'`
+  );
+  if (rows.length === 0) return;
+
+  const tieneStock = await db.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = 'productos' AND column_name = 'stock'`
+  );
+  const stockViejo = tieneStock.rows.length ? 'p.stock' : '10';
+
+  await db.query(`
+    INSERT INTO producto_tallas (producto_id, talla, stock)
+    SELECT p.id, TRIM(t), ${stockViejo}
+      FROM productos p, UNNEST(STRING_TO_ARRAY(p.tallas, ',')) AS t
+     WHERE TRIM(t) <> ''
+    ON CONFLICT (producto_id, talla) DO NOTHING
+  `);
+  await db.query(`ALTER TABLE productos DROP COLUMN IF EXISTS tallas, DROP COLUMN IF EXISTS stock, DROP COLUMN IF EXISTS emoji`);
+  console.log('Migración: el stock ahora se guarda por talla');
+}
+
+// Consulta base: cada producto con su lista de tallas (en formato JSON) y el stock total
+const SELECT_PRODUCTOS = `
+  SELECT p.*,
+         COALESCE(JSON_AGG(JSON_BUILD_OBJECT('talla', t.talla, 'stock', t.stock) ORDER BY t.id)
+                  FILTER (WHERE t.id IS NOT NULL), '[]') AS tallas,
+         COALESCE(SUM(t.stock), 0)::int AS stock
+    FROM productos p
+    LEFT JOIN producto_tallas t ON t.producto_id = p.id
+`;
+
+// Crea (id = null) o actualiza un producto con sus tallas.
+// "conexion" puede ser la base de datos o una transacción en curso.
+async function guardarProducto(conexion, id, datos) {
+  const valores = [datos.nombre, datos.descripcion, datos.precio, datos.categoria, datos.imagen];
+  let productoId = id;
+
+  if (id) {
+    const r = await conexion.query(
+      `UPDATE productos SET nombre=$1, descripcion=$2, precio=$3, categoria=$4, imagen=$5 WHERE id=$6 RETURNING id`,
+      [...valores, id]
+    );
+    if (r.rows.length === 0) return null;
+    // Reemplazamos todas las tallas por las nuevas
+    await conexion.query('DELETE FROM producto_tallas WHERE producto_id = $1', [id]);
+  } else {
+    const r = await conexion.query(
+      `INSERT INTO productos (nombre, descripcion, precio, categoria, imagen) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      valores
+    );
+    productoId = r.rows[0].id;
+  }
+
+  for (const t of datos.tallas) {
+    await conexion.query('INSERT INTO producto_tallas (producto_id, talla, stock) VALUES ($1, $2, $3)', [
+      productoId,
+      t.talla,
+      t.stock,
+    ]);
+  }
+  return productoId;
+}
+
+async function buscarProducto(id) {
+  const { rows } = await db.query(`${SELECT_PRODUCTOS} WHERE p.id = $1 GROUP BY p.id`, [id]);
+  return rows[0] || null;
 }
 
 // Solo deja pasar a administradores (el rol viene dentro del token)
@@ -84,31 +162,51 @@ function soloAdmin(req, res, next) {
   next();
 }
 
-// Valida y normaliza los datos del formulario de producto
+// Valida y limpia los datos del formulario de producto.
+// tallas debe llegar así: [{ talla: "S", stock: 5 }, { talla: "M", stock: 3 }]
 function validarProducto(cuerpo) {
-  const { nombre, descripcion, precio, categoria, tallas, stock, imagen } = cuerpo;
-  if (!nombre || !nombre.trim()) return { error: 'El nombre es obligatorio' };
-  if (!categoria || !categoria.trim()) return { error: 'La categoría es obligatoria' };
+  const { nombre, descripcion, precio, categoria, tallas, imagen } = cuerpo;
+  if (!nombre || !String(nombre).trim()) return { error: 'El nombre es obligatorio' };
+  if (!categoria || !String(categoria).trim()) return { error: 'La categoría es obligatoria' };
   if (!(Number(precio) > 0)) return { error: 'El precio debe ser mayor que 0' };
-  if (!Number.isInteger(Number(stock)) || Number(stock) < 0) return { error: 'El stock debe ser 0 o más' };
+  if (!Array.isArray(tallas) || tallas.length === 0) return { error: 'Agrega al menos una talla' };
 
-  // tallas puede llegar como ["S","M"] o como "S, M"
-  const lista = (Array.isArray(tallas) ? tallas : String(tallas || '').split(','))
-    .map((t) => String(t).trim())
-    .filter(Boolean);
-  if (lista.length === 0) return { error: 'Escribe al menos una talla' };
+  const lista = [];
+  for (const t of tallas) {
+    const talla = String(t.talla || '').trim();
+    const stock = Number(t.stock);
+    if (!talla) return { error: 'Cada talla necesita un nombre' };
+    if (!Number.isInteger(stock) || stock < 0) return { error: `El stock de la talla ${talla} debe ser 0 o más` };
+    if (lista.some((x) => x.talla === talla)) return { error: `La talla ${talla} está repetida` };
+    lista.push({ talla, stock });
+  }
 
   return {
     datos: {
-      nombre: nombre.trim(),
-      descripcion: (descripcion || '').trim(),
+      nombre: String(nombre).trim(),
+      descripcion: String(descripcion || '').trim(),
       precio: Number(precio),
-      categoria: categoria.trim(),
-      tallas: lista.join(','),
-      stock: Number(stock),
+      categoria: String(categoria).trim(),
       imagen: imagen || null,
+      tallas: lista,
     },
   };
+}
+
+// Ejecuta una función dentro de una transacción (todo o nada)
+async function enTransaccion(trabajo) {
+  const cliente = await db.connect();
+  try {
+    await cliente.query('BEGIN');
+    const resultado = await trabajo(cliente);
+    await cliente.query('COMMIT');
+    return resultado;
+  } catch (err) {
+    await cliente.query('ROLLBACK');
+    throw err;
+  } finally {
+    cliente.release();
+  }
 }
 
 // ---------- Rutas públicas ----------
@@ -119,18 +217,18 @@ app.get('/', (req, res) => {
 app.get('/productos', async (req, res) => {
   const { categoria } = req.query;
   const resultado = categoria
-    ? await db.query('SELECT * FROM productos WHERE categoria = $1 ORDER BY id', [categoria])
-    : await db.query('SELECT * FROM productos ORDER BY id');
-  res.json(resultado.rows.map(formatear));
+    ? await db.query(`${SELECT_PRODUCTOS} WHERE p.categoria = $1 GROUP BY p.id ORDER BY p.id`, [categoria])
+    : await db.query(`${SELECT_PRODUCTOS} GROUP BY p.id ORDER BY p.id`);
+  res.json(resultado.rows);
 });
 
 app.get('/productos/:id', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'Id inválido' });
 
-  const { rows } = await db.query('SELECT * FROM productos WHERE id = $1', [id]);
-  if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-  res.json(formatear(rows[0]));
+  const producto = await buscarProducto(id);
+  if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+  res.json(producto);
 });
 
 app.get('/categorias', async (req, res) => {
@@ -143,12 +241,8 @@ app.post('/productos', soloAdmin, async (req, res) => {
   const { error, datos } = validarProducto(req.body);
   if (error) return res.status(400).json({ error });
 
-  const { rows } = await db.query(
-    `INSERT INTO productos (nombre, descripcion, precio, categoria, tallas, stock, imagen)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [datos.nombre, datos.descripcion, datos.precio, datos.categoria, datos.tallas, datos.stock, datos.imagen]
-  );
-  res.status(201).json(formatear(rows[0]));
+  const id = await enTransaccion((cliente) => guardarProducto(cliente, null, datos));
+  res.status(201).json(await buscarProducto(id));
 });
 
 app.put('/productos/:id', soloAdmin, async (req, res) => {
@@ -158,19 +252,16 @@ app.put('/productos/:id', soloAdmin, async (req, res) => {
   const { error, datos } = validarProducto(req.body);
   if (error) return res.status(400).json({ error });
 
-  const { rows } = await db.query(
-    `UPDATE productos SET nombre=$1, descripcion=$2, precio=$3, categoria=$4, tallas=$5, stock=$6, imagen=$7
-     WHERE id=$8 RETURNING *`,
-    [datos.nombre, datos.descripcion, datos.precio, datos.categoria, datos.tallas, datos.stock, datos.imagen, id]
-  );
-  if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-  res.json(formatear(rows[0]));
+  const actualizado = await enTransaccion((cliente) => guardarProducto(cliente, id, datos));
+  if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
+  res.json(await buscarProducto(id));
 });
 
 app.delete('/productos/:id', soloAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'Id inválido' });
 
+  // Las tallas se borran solas (ON DELETE CASCADE)
   const { rowCount } = await db.query('DELETE FROM productos WHERE id = $1', [id]);
   if (rowCount === 0) return res.status(404).json({ error: 'Producto no encontrado' });
   res.json({ eliminado: true });

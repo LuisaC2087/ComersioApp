@@ -132,5 +132,5 @@ const estilos = StyleSheet.create({
   },
   estadoActivo: { backgroundColor: colores.botonFondo, borderColor: 'transparent' },
   estadoTexto: { color: colores.textoSuave, fontSize: 12, fontWeight: '600' },
-  error: { color: colores.error, backgroundColor: 'rgba(248,113,113,0.1)', padding: 10, borderRadius: 12, fontSize: 13 },
+  error: { color: colores.error, backgroundColor: colores.errorFondo, padding: 10, borderRadius: 12, fontSize: 13 },
 });

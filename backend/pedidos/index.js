@@ -2,7 +2,7 @@
 //  MICROSERVICIO DE PEDIDOS
 //
 //  Cliente (token):
-//  - POST /pedidos      -> descuenta stock, paga (simulado) y guarda la factura
+//  - POST /pedidos      -> descuenta el stock de cada talla, paga (simulado) y guarda la factura
 //  - GET  /pedidos      -> historial de compras del usuario
 //  - GET  /pedidos/:id  -> detalle de una compra (la factura)
 //
@@ -91,6 +91,20 @@ const redondear = (n) => Math.round(n * 100) / 100;
 // Número de factura legible: 7 -> "FAC-000007"
 const numeroFactura = (id) => 'FAC-' + String(id).padStart(6, '0');
 
+// Explica por qué no se pudo descontar el stock de un producto/talla
+async function motivoSinStock(item) {
+  const { rows } = await db.query(
+    `SELECT p.nombre, t.stock
+       FROM productos p
+       LEFT JOIN producto_tallas t ON t.producto_id = p.id AND t.talla = $2
+      WHERE p.id = $1`,
+    [item.productoId, item.talla]
+  );
+  if (rows.length === 0) return `El producto ${item.productoId} ya no existe`;
+  if (rows[0].stock === null) return `"${rows[0].nombre}" ya no tiene la talla ${item.talla}`;
+  return `Solo quedan ${rows[0].stock} unidades de "${rows[0].nombre}" en talla ${item.talla}`;
+}
+
 async function obtenerPedido(id, usuarioId) {
   const pedido = await db.query('SELECT * FROM pedidos WHERE id = $1 AND usuario_id = $2', [id, usuarioId]);
   if (pedido.rows.length === 0) return null;
@@ -114,6 +128,9 @@ app.post('/pedidos', autenticar, async (req, res) => {
     if (!Number.isInteger(Number(item.cantidad)) || Number(item.cantidad) < 1) {
       return res.status(400).json({ error: 'Cantidad inválida' });
     }
+    if (!item.talla) {
+      return res.status(400).json({ error: 'Cada producto necesita una talla' });
+    }
   }
 
   // Toda la compra ocurre en una transacción: o se guarda todo, o nada
@@ -121,29 +138,29 @@ app.post('/pedidos', autenticar, async (req, res) => {
   try {
     await cliente.query('BEGIN');
 
-    // 1) Descontamos el stock de cada producto. El UPDATE solo funciona si
-    //    hay stock suficiente; de paso nos devuelve el nombre y el PRECIO REAL.
+    // 1) Descontamos el stock de la TALLA elegida (tabla producto_tallas).
+    //    El UPDATE solo funciona si hay stock suficiente ("stock >= cantidad"),
+    //    así nunca se vende de más aunque dos personas compren a la vez.
+    //    De paso nos devuelve el nombre y el PRECIO REAL desde la tabla productos.
     const detalle = [];
     for (const item of items) {
       const cantidad = Number(item.cantidad);
       const r = await cliente.query(
-        `UPDATE productos SET stock = stock - $1
-          WHERE id = $2 AND stock >= $1
-          RETURNING nombre, precio`,
-        [cantidad, item.productoId]
+        `UPDATE producto_tallas t SET stock = t.stock - $1
+           FROM productos p
+          WHERE p.id = t.producto_id
+            AND t.producto_id = $2 AND t.talla = $3 AND t.stock >= $1
+          RETURNING p.nombre, p.precio`,
+        [cantidad, item.productoId, item.talla]
       );
       if (r.rows.length === 0) {
         await cliente.query('ROLLBACK');
-        const p = await db.query('SELECT nombre, stock FROM productos WHERE id = $1', [item.productoId]);
-        const mensaje = p.rows.length === 0
-          ? `El producto ${item.productoId} ya no existe`
-          : `Solo quedan ${p.rows[0].stock} unidades de "${p.rows[0].nombre}"`;
-        return res.status(409).json({ error: mensaje });
+        return res.status(409).json({ error: await motivoSinStock(item) });
       }
       detalle.push({
         productoId: item.productoId,
         nombre: r.rows[0].nombre,
-        talla: item.talla || null,
+        talla: item.talla,
         cantidad,
         precio: r.rows[0].precio,
       });

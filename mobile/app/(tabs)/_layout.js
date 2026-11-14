@@ -20,7 +20,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colores.textoSuave,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarStyle: estilos.barra,
-        tabBarBackground: () => <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />,
+        tabBarBackground: () => <BlurView intensity={45} tint={colores.tintaBlur} style={StyleSheet.absoluteFill} />,
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Catálogo', tabBarIcon: icono('storefront') }} />
@@ -34,7 +34,7 @@ export default function TabsLayout() {
 const estilos = StyleSheet.create({
   barra: {
     position: 'absolute',
-    backgroundColor: 'rgba(13,15,29,0.55)',
+    backgroundColor: colores.barraPestanas,
     borderTopColor: colores.borde,
     borderTopWidth: 1,
     elevation: 0,
